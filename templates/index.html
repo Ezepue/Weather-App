@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset= "UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WEATHER APP</title>
+</head>
+<body>
+    <h2>Weather App</h2>
+    <form method="POST">>
+        <input type="text" name="city" placeholder="Enter City Name" required>
+        <button type="submit">Get Weather</button>
+    </form>
+
+    {% if weather %}
+        {% if weather.error %}
+            <p style="color: red;">{{ weather.error }}</p>
+        {% else %}
+            <h3>Weather in {{ weather.location.name }}, {{ weather.location.country }}</h3>
+            <p>Temperature: {{ weather.current.temp_c }}°C</p>
+            <p>Condition: {{ weather.current.condition.text }}</p>
+            <img src="{{ weather.current.condition.icon }}" alt="Weather Icon">
+        {% endif %}
+    {% endif %}
+</body>
+</html>
