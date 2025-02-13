@@ -1,39 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset= "UTF-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WEATHER APP</title>
-    <link rel="stylesheet" href="\static\style.css">
+    <title>Weather App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class ="container">
-        <h2>Weather App</h2>
+    <div class="container">
+        <h1>Weather App</h1>
         <form method="POST">
-            <input type="text" name="city" placeholder="Enter City Name" required>
+            <input type="text" name="city" placeholder="Enter city name" required>
             <button type="submit">Get Weather</button>
         </form>
 
-        {% if weather %}
-        <div class="weather-info">
-            <h2>{{ weather.location.name }}, {{ weather.location.country }}</h2>
-            <p>Temperature: {{ weather.current.temp_c }}°C</p>
-            <p>Condition: {{ weather.current.condition.text }}</p>
-            <p>Air Quality: {{ weather.current.air_quality.pm2_5 }} PM2.5</p>
-        </div>
+        {% if weather and weather.location and weather.current %}
+            <div class="weather-info">
+                <h2>Current Weather in {{ weather.location.name }}, {{ weather.location.country }}</h2>
+                <p>Temperature: {{ weather.current.temp_c }}°C</p>
+                <p>Condition: {{ weather.current.condition.text }}</p>
+                {% if weather.current.air_quality %}
+                    <p>Air Quality Index: {{ weather.current.air_quality.pm2_5 }}</p>
+                {% else %}
+                    <p>Air Quality Data not available.</p>
+                {% endif %}
+            </div>
+        {% else %}
+            <p>Weather data not available.</p>
         {% endif %}
 
-        {% if forecast %}
-        <div class="forecast">
-            <h2>3-Day Forecast</h2>
-            <ul>
+        {% if forecast and forecast.forecast and forecast.forecast.forecastday %}
+            <div class="forecast">
+                <h2>3-Day Forecast</h2>
                 {% for day in forecast.forecast.forecastday %}
-                <li>
-                    <strong>{{ day.date }}</strong>: {{ day.day.avgtemp_c }}°C, {{ day.day.condition.text }}
-                </li>
+                    <p>{{ day.date }} - {{ day.day.condition.text }}, High: {{ day.day.maxtemp_c }}°C, Low: {{ day.day.mintemp_c }}°C</p>
                 {% endfor %}
-            </ul>
-        </div>
+            </div>
+        {% else %}
+            <p>No forecast data available.</p>
+        {% endif %}
+
+        {% if timezone and timezone.location %}
+            <div class="timezone">
+                <h2>Timezone Info</h2>
+                <p>Local Time: {{ timezone.location.localtime }}</p>
+            </div>
+        {% else %}
+            <p>Timezone data not available.</p>
+        {% endif %}
+
+        {% if marine and marine.forecast and marine.forecast.forecastday %}
+            <div class="marine">
+                <h2>Marine Weather</h2>
+                <p>Wave Height: {{ marine.forecast.forecastday[0].day.maxtemp_c }} meters</p>
+            </div>
+        {% else %}
+            <p>Marine data not available.</p>
+        {% endif %}
+
+        {% if astronomy and astronomy.astronomy and astronomy.astronomy.astro %}
+            <div class="astronomy">
+                <h2>Astronomy Data</h2>
+                <p>Sunrise: {{ astronomy.astronomy.astro.sunrise }}</p>
+                <p>Sunset: {{ astronomy.astronomy.astro.sunset }}</p>
+                <p>Moon Phase: {{ astronomy.astronomy.astro.moon_phase }}</p>
+            </div>
+        {% else %}
+            <p>Astronomy data not available.</p>
         {% endif %}
     </div>
 </body>
