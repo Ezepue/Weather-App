@@ -4,23 +4,37 @@
     <meta charset= "UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WEATHER APP</title>
+    <link rel="stylesheet" href="\static\style.css">
 </head>
 <body>
-    <h2>Weather App</h2>
-    <form method="POST">>
-        <input type="text" name="city" placeholder="Enter City Name" required>
-        <button type="submit">Get Weather</button>
-    </form>
+    <div class ="container">
+        <h2>Weather App</h2>
+        <form method="POST">
+            <input type="text" name="city" placeholder="Enter City Name" required>
+            <button type="submit">Get Weather</button>
+        </form>
 
-    {% if weather %}
-        {% if weather.error %}
-            <p style="color: red;">{{ weather.error }}</p>
-        {% else %}
-            <h3>Weather in {{ weather.location.name }}, {{ weather.location.country }}</h3>
+        {% if weather %}
+        <div class="weather-info">
+            <h2>{{ weather.location.name }}, {{ weather.location.country }}</h2>
             <p>Temperature: {{ weather.current.temp_c }}°C</p>
             <p>Condition: {{ weather.current.condition.text }}</p>
-            <img src="{{ weather.current.condition.icon }}" alt="Weather Icon">
+            <p>Air Quality: {{ weather.current.air_quality.pm2_5 }} PM2.5</p>
+        </div>
         {% endif %}
-    {% endif %}
+
+        {% if forecast %}
+        <div class="forecast">
+            <h2>3-Day Forecast</h2>
+            <ul>
+                {% for day in forecast.forecast.forecastday %}
+                <li>
+                    <strong>{{ day.date }}</strong>: {{ day.day.avgtemp_c }}°C, {{ day.day.condition.text }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
 </body>
 </html>
