@@ -4,70 +4,107 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather App</title>
+    
+    <!-- Weather Icons Library -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.10/css/weather-icons.min.css">
+    
+    <!-- Custom Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
+    <!-- JavaScript -->
+    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
 </head>
 <body>
+
+    <button id="dark-mode-toggle"><i class="wi wi-moon-alt-new"></i></button>
+
     <div class="container">
         <h1>Weather App</h1>
-        <form method="POST">
-            <input type="text" name="city" placeholder="Enter city name" required>
-            <button type="submit">Get Weather</button>
+        <form method="POST" id="weather-form">
+            <div class="search-container">
+                <input type="text" name="city" id="city-input" placeholder="Enter city name" required>
+                <button type="submit"><i class="wi wi-day-sunny"></i> Get Weather</button>
+            </div>
+            <p id="loading-text" style="display: none;">Fetching weather data...</p>
         </form>
+        
 
         {% if weather and weather.location and weather.current %}
             <div class="weather-info">
-                <h2>Current Weather in {{ weather.location.name }}, {{ weather.location.country }}</h2>
-                <p>Temperature: {{ weather.current.temp_c }}°C</p>
-                <p>Condition: {{ weather.current.condition.text }}</p>
-                {% if weather.current.air_quality %}
-                    <p>Air Quality Index: {{ weather.current.air_quality.pm2_5 }}</p>
-                {% else %}
-                    <p>Air Quality Data not available.</p>
-                {% endif %}
+                <h2><i class="wi wi-day-cloudy"></i> Current Weather in {{ weather.location.name }}, {{ weather.location.country }}</h2>
+                <div class="weather-card">
+                    <i class="wi wi-thermometer"></i>
+                    <p>Temperature: {{ weather.current.temp_c }}°C</p>
+                    <p>Condition: <i class="wi wi-{{ weather.current.condition.icon }}"></i> {{ weather.current.condition.text }}</p>
+                    
+                    {% if weather.current.air_quality %}
+                        <p><i class="wi wi-dust"></i> Air Quality Index: {{ weather.current.air_quality.pm2_5 }}</p>
+                    {% else %}
+                        <p>Air Quality Data not available.</p>
+                    {% endif %}
+                </div>
             </div>
         {% else %}
             <p>Weather data not available.</p>
         {% endif %}
 
+        <div class="section-spacing"></div>
+
         {% if forecast and forecast.forecast and forecast.forecast.forecastday %}
             <div class="forecast">
-                <h2>3-Day Forecast</h2>
+                <h2><i class="wi wi-day-sunny-overcast"></i> 3-Day Forecast</h2>
                 {% for day in forecast.forecast.forecastday %}
-                    <p>{{ day.date }} - {{ day.day.condition.text }}, High: {{ day.day.maxtemp_c }}°C, Low: {{ day.day.mintemp_c }}°C</p>
+                    <div class="weather-card">
+                        <p>{{ day.date }} - {{ day.day.condition.text }}</p>
+                        <p><i class="wi wi-hot"></i> High: {{ day.day.maxtemp_c }}°C | <i class="wi wi-snowflake-cold"></i> Low: {{ day.day.mintemp_c }}°C</p>
+                    </div>
                 {% endfor %}
             </div>
         {% else %}
             <p>No forecast data available.</p>
         {% endif %}
 
+        <div class="section-spacing"></div>
+
         {% if timezone and timezone.location %}
             <div class="timezone">
-                <h2>Timezone Info</h2>
-                <p>Local Time: {{ timezone.location.localtime }}</p>
+                <h2><i class="wi wi-time-3"></i> Timezone Info</h2>
+                <div class="weather-card">
+                    <p><i class="wi wi-time-6"></i> Local Time: {{ timezone.location.localtime }}</p>
+                </div>
             </div>
         {% else %}
             <p>Timezone data not available.</p>
         {% endif %}
 
+        <div class="section-spacing"></div>
+
         {% if marine and marine.forecast and marine.forecast.forecastday %}
             <div class="marine">
-                <h2>Marine Weather</h2>
-                <p>Wave Height: {{ marine.forecast.forecastday[0].day.maxtemp_c }} meters</p>
+                <h2><i class="wi wi-tsunami"></i> Marine Weather</h2>
+                <div class="weather-card">
+                    <p><i class="wi wi-windy"></i> Wave Height: {{ marine.forecast.forecastday[0].day.maxtemp_c }} meters</p>
+                </div>
             </div>
         {% else %}
             <p>Marine data not available.</p>
         {% endif %}
 
+        <div class="section-spacing"></div>
+
         {% if astronomy and astronomy.astronomy and astronomy.astronomy.astro %}
             <div class="astronomy">
-                <h2>Astronomy Data</h2>
-                <p>Sunrise: {{ astronomy.astronomy.astro.sunrise }}</p>
-                <p>Sunset: {{ astronomy.astronomy.astro.sunset }}</p>
-                <p>Moon Phase: {{ astronomy.astronomy.astro.moon_phase }}</p>
+                <h2><i class="wi wi-stars"></i> Astronomy Data</h2>
+                <div class="weather-card">
+                    <p><i class="wi wi-sunrise"></i> Sunrise: {{ astronomy.astronomy.astro.sunrise }}</p>
+                    <p><i class="wi wi-sunset"></i> Sunset: {{ astronomy.astronomy.astro.sunset }}</p>
+                    <p><i class="wi wi-moon-alt-waning-crescent-4"></i> Moon Phase: {{ astronomy.astronomy.astro.moon_phase }}</p>
+                </div>
             </div>
         {% else %}
             <p>Astronomy data not available.</p>
         {% endif %}
     </div>
+
 </body>
 </html>
