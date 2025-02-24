@@ -35,7 +35,6 @@
                 <div class="weather-card">
                     <p><i class="wi wi-thermometer"></i> Temperature: {{ weather.current.temp_c }}°C</p>
                     <p>Condition: <i class="wi wi-{{ weather.current.condition.icon }}"></i> {{ weather.current.condition.text }}</p>
-                    
                     {% if weather.current.air_quality %}
                         <p><i class="wi wi-dust"></i> Air Quality Index: {{ weather.current.air_quality.pm2_5 }}</p>
                     {% else %}

@@ -50,8 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelector(".weather-info").innerHTML = `
             <h2><i class="wi wi-day-cloudy"></i> Current Weather in ${data.location.name}, ${data.location.country}</h2>
             <div class="weather-card">
-                <i class="wi wi-thermometer"></i>
-                <p>Temperature: ${data.current.temp_c}°C</p>
+                <p><i class="wi wi-thermometer"></i> Temperature: ${data.current.temp_c}°C</p>
                 <p>Condition: <i class="wi wi-${data.current.condition.icon}"></i> ${data.current.condition.text}</p>
                 ${data.current.air_quality ? `<p><i class="wi wi-dust"></i> Air Quality Index: ${data.current.air_quality.pm2_5}</p>` : "<p>Air Quality Data not available.</p>"}
             </div>
