@@ -11,7 +11,7 @@ This is a simple weather app that allows users to check the current weather and 
 ## Technologies Used
 - **Frontend:** HTML, CSS, JavaScript
 - **Backend:** Python (Flask)
-- **API:** WeatherAPI (or any other weather API)
+- **API:** WeatherAPI (or any other Weather API)
 
 ## Installation
 
@@ -44,7 +44,7 @@ Make sure you have **Python 3** installed.
 6. Open your browser and go to `http://127.0.0.1:5000/`
 
 ## API Key Configuration
-- This app requires an API key from WeatherAPO (or your preferred weather API).
+- This app requires an API key from WeatherAPI (or your preferred weather API).
 - Register on [WeatherAPI](https://www.weatherapi.com/) to get a free API key.
 - Store the API key in a `.env` file to keep it secure.
 
@@ -61,5 +61,6 @@ dotenv
 This project is licensed under the MIT License.
 
 ## Contributing
-Feel free to fork this repo and contribute! 🚀
+Feel free to fork this repo and contribute!
+
 

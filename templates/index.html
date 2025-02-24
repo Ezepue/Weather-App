@@ -33,8 +33,7 @@
             <div class="weather-info">
                 <h2><i class="wi wi-day-cloudy"></i> Current Weather in {{ weather.location.name }}, {{ weather.location.country }}</h2>
                 <div class="weather-card">
-                    <i class="wi wi-thermometer"></i>
-                    <p>Temperature: {{ weather.current.temp_c }}°C</p>
+                    <p><i class="wi wi-thermometer"></i> Temperature: {{ weather.current.temp_c }}°C</p>
                     <p>Condition: <i class="wi wi-{{ weather.current.condition.icon }}"></i> {{ weather.current.condition.text }}</p>
                     
                     {% if weather.current.air_quality %}
