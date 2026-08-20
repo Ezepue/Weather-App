@@ -49,7 +49,21 @@ file, the file wins.
 ### "API key is invalid"
 
 That sentence comes from WeatherAPI, not from this app, and it means the key
-reached them and was rejected. Diagnose it with:
+reached them and was rejected.
+
+**No repository checkout?** `GET /api/v1/healthz` reports the key's status,
+source, length and any repairs applied - no setup, and it never returns the
+key. For the full probe on a deployed instance, set a `DIAGNOSTIC_TOKEN`
+environment variable and open:
+
+```
+https://<your-app>/api/v1/diagnose?token=<your-token>
+```
+
+Without `DIAGNOSTIC_TOKEN` set, that route returns 404 - it spends upstream
+quota and reports key metadata, so it is off unless you turn it on.
+
+**With a checkout:**
 
 ```sh
 python -m weatherapp.doctor
@@ -98,6 +112,7 @@ reports the key's status and source (never its value).
 | `TIME_QUANTUM` | `60` | Bucket size for "now", which keeps ETags stable. |
 | `MARINE_ENABLED` | `true` | Request the marine product for coastal places. |
 | `ALLOW_HTTP_FALLBACK` | `true` | Retry over HTTP when the plan has no TLS. |
+| `DIAGNOSTIC_TOKEN` | *(none)* | Enables `/api/v1/diagnose`. Unset means 404. |
 
 ## API
 

@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import hmac
+import os
+
 from flask import Blueprint, current_app, request
 
 from ..domain.protocols import ProviderError
+from .. import diagnostics
 from .serialization import content_fingerprint, error_response, json_response
 
 api = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -92,6 +96,28 @@ def capabilities():
 def _activity_keys():
     from ..advice import all_scorers
     return all_scorers()
+
+
+@api.get("/diagnose")
+def diagnose():
+    """Key diagnosis for a deployed instance, off unless a token is configured.
+
+    Gated because it reports key metadata and spends upstream quota. An unset
+    token 404s rather than 403s, so an unconfigured deployment does not
+    advertise that the endpoint exists.
+    """
+    expected = os.getenv("DIAGNOSTIC_TOKEN", "")
+    supplied = request.args.get("token", "")
+    if not expected or not hmac.compare_digest(expected, supplied):
+        return error_response("Not found", 404, "request")
+
+    settings = _settings()
+    raw, source = None, ""
+    for name in ("API_KEY", "WEATHERAPI_KEY"):
+        if os.getenv(name) is not None:
+            raw, source = os.getenv(name), name
+            break
+    return json_response(diagnostics.diagnose(settings, raw, source), max_age=0)
 
 
 @api.get("/healthz")
