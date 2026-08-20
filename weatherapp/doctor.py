@@ -8,6 +8,7 @@ is safe to paste into an issue.
 from __future__ import annotations
 
 import os
+import re
 import sys
 
 from . import PROJECT_ROOT, load_environment
@@ -31,6 +32,13 @@ def run() -> int:
         _line(TICK, f".env found at {env_file}")
     else:
         _line(WARN, f"no .env at {PROJECT_ROOT / '.env'} - relying on the process environment")
+
+    from pathlib import Path
+    local_env = Path.cwd() / ".env"
+    if local_env.is_file() and local_env.resolve() != (PROJECT_ROOT / ".env").resolve():
+        _line(WARN, f"a second .env exists at {local_env}")
+        _line(INFO, "the previous version read that one; this version reads the")
+        _line(INFO, "project-root file. If they hold different keys, that is the bug.")
 
     present = [name for name in ("API_KEY", "WEATHERAPI_KEY") if os.getenv(name) is not None]
     if not present:
@@ -67,72 +75,99 @@ def run() -> int:
         return 1
 
     print("-" * 52)
-    return _probe(settings, credential.value)
+    return _probe(settings, credential.value, os.getenv(present[0]))
 
 
-def _probe(settings, key: str) -> int:
-    """Try each endpoint over both schemes.
+def _charset(value: str) -> str:
+    """Describe the key's characters without printing them."""
+    bits = []
+    if re.fullmatch(r"[0-9a-f]+", value):
+        bits.append("lowercase hex")
+    elif re.fullmatch(r"[0-9A-Za-z]+", value):
+        bits.append("alphanumeric")
+    else:
+        odd = sorted({c for c in value if not c.isalnum()})
+        bits.append("contains " + " ".join(repr(c) for c in odd))
+    if any(c.isupper() for c in value):
+        bits.append("has uppercase")
+    return ", ".join(bits)
 
-    A free WeatherAPI plan serves HTTP only and answers an HTTPS request by
-    rejecting the key, so "invalid key" and "no TLS on this plan" are
-    indistinguishable from a single request. Two schemes tell them apart.
+
+def _probe(settings, key: str, raw: str) -> int:
+    """Isolate every difference between this code and the version that worked.
+
+    The old app interpolated the key into the URL over HTTP with no
+    normalisation. This one normalises, passes params= and prefers HTTPS. Each
+    of those is a suspect until a probe clears it, so all combinations are
+    tried rather than reasoned about.
     """
     http = HttpClient(timeout=settings.http_timeout, retries=0)
-    endpoints = (
-        ("current.json", {"q": "London", "aqi": "yes"}),
-        ("forecast.json", {"q": "London", "days": settings.forecast_days,
-                           "aqi": "yes", "alerts": "yes"}),
-        ("search.json", {"q": "lond"}),
-    )
-    if settings.marine_enabled:
-        endpoints += (("marine.json", {"q": "Brighton", "days": 1}),)
-
     host = settings.base_url.split("://", 1)[-1].rstrip("/")
-    results: dict[str, dict] = {}
 
+    values = [("normalised", key)]
+    if raw is not None and raw.strip() != key:
+        values.append(("raw env value", raw.strip()))
+
+    _line(INFO, f"charset           {_charset(key)}")
+    print()
+
+    winners = []
+    answered = []          # probes that got a real reply, refused or not
     for scheme in ("https", "http"):
-        print(f"\n  {scheme.upper()}")
-        results[scheme] = {}
-        for path, params in endpoints:
-            try:
-                payload = http.get_json(f"{scheme}://{host}/{path}", {"key": key, **params})
-            except ProviderError as exc:
-                results[scheme][path] = f"unreachable ({exc})"
-                _line(CROSS, f"  {path:14} {exc}")
-                continue
-            error = (payload or {}).get("error") or {}
-            if error:
-                results[scheme][path] = f"code {error.get('code')}"
-                _line(CROSS, f"  {path:14} code {error.get('code')}: {error.get('message')}")
-            else:
-                results[scheme][path] = "ok"
-                _line(TICK, f"  {path:14} ok")
+        for label, value in values:
+            for style in ("params", "inline"):
+                url = f"{scheme}://{host}/current.json"
+                if style == "inline":
+                    # Exactly how the previous version built it.
+                    url = f"{url}?key={value}&q=London&aqi=yes"
+                    params = None
+                else:
+                    params = {"key": value, "q": "London", "aqi": "yes"}
+                tag = f"{scheme:5} {style:6} {label}"
+                try:
+                    payload = http.get_json(url, params)
+                except ProviderError as exc:
+                    _line(CROSS, f"{tag:38} {exc}")
+                    continue
+                error = (payload or {}).get("error") or {}
+                if error:
+                    answered.append(error.get("code"))
+                    _line(CROSS, f"{tag:38} code {error.get('code')}: {error.get('message')}")
+                else:
+                    answered.append(None)
+                    _line(TICK, f"{tag:38} ok")
+                    winners.append((scheme, style, label))
 
     print("\n" + "-" * 52)
-    https_ok = [p for p, r in results["https"].items() if r == "ok"]
-    http_ok = [p for p, r in results["http"].items() if r == "ok"]
+    if not winners and not answered:
+        # Nothing replied, so nothing was learned about the key.
+        _line(CROSS, "no probe reached WeatherAPI - this is a network or proxy")
+        _line(INFO, "problem, not a key problem. Nothing here judges the key.")
+        return 1
+    if not winners:
+        _line(CROSS, f"every combination was rejected (codes {sorted({c for c in answered if c})})")
+        _line(INFO, "the key itself is not accepted by WeatherAPI. Compare the")
+        _line(INFO, "masked value above against weatherapi.com/my-account - if the")
+        _line(INFO, "first and last four characters differ, the app is reading a")
+        _line(INFO, "different key than you think (check for a second .env).")
+        return 1
 
-    if https_ok:
-        _line(TICK, "the key works over HTTPS - nothing to change")
-        return 0
-    if http_ok:
-        _line(WARN, "the key works over HTTP but not HTTPS")
-        _line(INFO, "this plan does not include TLS. The app already retries over")
-        _line(INFO, "HTTP automatically, so it will work - but the key travels in")
-        _line(INFO, "cleartext. To make it explicit and skip the failed attempt:")
-        _line(INFO, "  WEATHER_BASE_URL=http://api.weatherapi.com/v1/")
-        _line(INFO, "Set ALLOW_HTTP_FALLBACK=0 to refuse cleartext instead.")
-        return 0
-    codes = {r for r in list(results["https"].values()) + list(results["http"].values())}
-    if any("2006" in c for c in codes):
-        _line(CROSS, "rejected over both schemes: the key itself is not valid")
-        _line(INFO, "re-copy it from weatherapi.com/my-account. New keys take a few")
-        _line(INFO, "minutes to activate; trial keys expire after 14 days.")
-    elif any("unreachable" in c for c in codes):
-        _line(CROSS, "could not reach the API at all - check network or proxy")
-    else:
-        _line(CROSS, f"no endpoint succeeded: {sorted(codes)}")
-    return 1
+    schemes = {w[0] for w in winners}
+    styles = {w[1] for w in winners}
+    labels = {w[2] for w in winners}
+
+    _line(TICK, f"working combinations: {len(winners)}")
+    if "https" not in schemes:
+        _line(WARN, "HTTPS never works: this plan has no TLS")
+        _line(INFO, "set WEATHER_BASE_URL=http://api.weatherapi.com/v1/")
+    if "params" not in styles:
+        _line(WARN, "only the inline-URL form works, which means the key contains")
+        _line(INFO, "characters that must not be percent-encoded. Report this - the")
+        _line(INFO, "adapter needs to build that URL by hand.")
+    if "normalised" not in labels:
+        _line(CROSS, "only the RAW value works - normalisation is corrupting the key")
+        _line(INFO, "set the key exactly, with no quotes or prefix, and report this.")
+    return 0
 
 
 if __name__ == "__main__":
