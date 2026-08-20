@@ -99,8 +99,8 @@ def sanitize(raw: str | None) -> Credential:
         return Credential("", "missing", "No key supplied", tuple(repaired))
     if looks_like_placeholder(value):
         return Credential("", "placeholder",
-                          f"API_KEY is still a placeholder ({len(value)} characters of "
-                          "instruction text, not a key). Replace it with a real key.",
+                          "API_KEY is still the placeholder from the setup "
+                          "instructions. Replace it with a real key.",
                           tuple(repaired))
     if not _EXPECTED_SHAPE.match(value.lower()):
         return Credential(

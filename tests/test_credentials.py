@@ -97,12 +97,25 @@ class TestPlaceholderReachesTheUser:
         assert payload["meta"]["provider"] == "demo", "a placeholder must not be sent upstream"
         assert any("placeholder" in n.lower() for n in payload["meta"]["notices"])
 
-    def test_healthz_reports_the_placeholder_status(self, monkeypatch):
+    def test_healthz_publishes_no_credential_metadata(self, monkeypatch):
+        """healthz is unauthenticated: it must not describe the key at all."""
         from weatherapp import create_app
         from weatherapp.config import Settings
 
-        monkeypatch.setenv("API_KEY", "your_secret_key")
+        monkeypatch.setenv("API_KEY", "0123456789abcdef0123456789abcdef")
         client = create_app(settings=Settings.from_env()).test_client()
-        key = client.get("/api/v1/healthz").get_json()["key"]
-        assert key["status"] == "placeholder"
-        assert key["configured"] is False
+        payload = client.get("/api/v1/healthz").get_json()
+        body = client.get("/api/v1/healthz").get_data(as_text=True)
+
+        assert "key" not in payload
+        for leak in ("0123456789abcdef0123456789abcdef", "API_KEY", "length", "normalised"):
+            assert leak not in body
+
+    def test_no_unauthenticated_diagnostic_route_exists(self):
+        """The debugging endpoint was removed; it must not come back."""
+        from weatherapp import create_app
+        from weatherapp.config import Settings
+
+        client = create_app(settings=Settings()).test_client()
+        assert client.get("/api/v1/diagnose").status_code == 404
+        assert client.get("/api/v1/diagnose?token=").status_code == 404

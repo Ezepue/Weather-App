@@ -51,47 +51,41 @@ file, the file wins.
 That sentence comes from WeatherAPI, not from this app, and it means the key
 reached them and was rejected.
 
-**No repository checkout?** `GET /api/v1/healthz` reports the key's status,
-source, length and any repairs applied - no setup, and it never returns the
-key. For the full probe on a deployed instance, set a `DIAGNOSTIC_TOKEN`
-environment variable and open:
-
-```
-https://<your-app>/api/v1/diagnose?token=<your-token>
-```
-
-Without `DIAGNOSTIC_TOKEN` set, that route returns 404 - it spends upstream
-quota and reports key metadata, so it is off unless you turn it on.
-
-**With a checkout:**
+Diagnose it from a checkout:
 
 ```sh
 python -m weatherapp.doctor
 ```
+
+It reports the key's source, its masked value and any repairs applied, then
+probes the API over HTTPS. No endpoint reports credential state: `healthz` is
+unauthenticated, so it says nothing about the key. On a host with no shell,
+read the application log - a key of impossible length is logged as a warning.
+
+If the plan may not include TLS, `--insecure-probe` also tries HTTP. That
+sends the key in a cleartext URL, so it is opt-in.
 
 It reports which variable supplied the key, what the key looks like after
 normalisation (masked), and what the upstream says about it. Common causes:
 
 | Cause | What the doctor shows |
 |---|---|
-| **Plan has no HTTPS** (most likely if it worked before) | `works over HTTP but not HTTPS` |
-| Key still the placeholder | `the key is still the placeholder` |
+| Key still the placeholder from setup | `API_KEY is still the placeholder` |
+| Key truncated in the host's env vars | `not the expected length` |
+| Plan has no HTTPS | `--insecure-probe` succeeds where HTTPS fails |
 | Whole `API_KEY=...` line or dashboard URL pasted as the value | `normalised: stripped a key= prefix` |
 | Key correct but newly created | shape `ok`, upstream `2006` - new keys can take a few minutes to activate |
 | Trial expired | shape `ok`, upstream `2006` - WeatherAPI trials lapse after 14 days |
 | Over quota | upstream `2007`, reported as HTTP 429 |
 | Free plan, marine requested | upstream `2009` - set `MARINE_ENABLED=0` |
 
-WeatherAPI's free plan serves **HTTP only** and answers an HTTPS request by
-rejecting the key, so a perfectly good key reads as "invalid". The app tries
-TLS first and retries once over HTTP, which means it keeps working - but the
-key then travels in cleartext. Make it explicit to skip the failed attempt:
+Most reports of this are the key never reaching the app intact: a placeholder
+left in place, or a value truncated in the host's environment variables. The
+app refuses to send a placeholder upstream at all, and falls back to demo data
+with a notice saying so.
 
-```sh
-WEATHER_BASE_URL=http://api.weatherapi.com/v1/
-```
-
-Set `ALLOW_HTTP_FALLBACK=0` to refuse cleartext instead of downgrading.
+If a plan genuinely lacks TLS, set `ALLOW_HTTP_FALLBACK=1` to retry over HTTP.
+It is off by default because it puts the key in a cleartext URL.
 
 Pasted quotes, a trailing carriage return, a `key=` prefix and a full request
 URL are all repaired automatically, so a mangled `.env` line is no longer a
@@ -111,8 +105,8 @@ reports the key's status and source (never its value).
 | `HTTP_TIMEOUT` | `8` | Upstream timeout in seconds. |
 | `TIME_QUANTUM` | `60` | Bucket size for "now", which keeps ETags stable. |
 | `MARINE_ENABLED` | `true` | Request the marine product for coastal places. |
-| `ALLOW_HTTP_FALLBACK` | `true` | Retry over HTTP when the plan has no TLS. |
-| `DIAGNOSTIC_TOKEN` | *(none)* | Enables `/api/v1/diagnose`. Unset means 404. |
+| `ALLOW_HTTP_FALLBACK` | `false` | Retry over HTTP if the plan has no TLS. Sends the key unencrypted; opt in only if you must. |
+| `FLASK_DEBUG` | `0` | Werkzeug debugger. Never enable on a reachable host. |
 
 ## API
 

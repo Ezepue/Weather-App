@@ -22,8 +22,16 @@ def _line(mark: str, text: str) -> None:
     print(f"[{mark}] {text}")
 
 
-def run() -> int:
+def run(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    # Probing over HTTP puts the key in a cleartext URL, so it is never done
+    # unless the operator asks for it.
+    insecure = "--insecure-probe" in argv
+    schemes = ("https", "http") if insecure else ("https",)
+
     print("Barograph key diagnosis\n" + "=" * 58)
+    if insecure:
+        _line(WARN, "--insecure-probe: HTTP attempts will send the key in cleartext")
 
     env_file = load_environment()
     if env_file:
@@ -47,7 +55,7 @@ def run() -> int:
         _line(INFO, f"fix: echo 'API_KEY=your_key' > {PROJECT_ROOT / '.env'}")
         return 1
 
-    report = diagnose(Settings.from_env(), raw, source)
+    report = diagnose(Settings.from_env(), raw, source, schemes=schemes)
     key = report["key"]
     _line(INFO, f"source            {key['source']}")
     _line(INFO, f"value             {key['masked']} ({key['length']} chars)")
@@ -64,6 +72,9 @@ def run() -> int:
 
     print("-" * 58)
     result = report["verdict"]
+    if result["state"] != "ok" and not insecure:
+        _line(INFO, "if the plan may lack TLS, re-run with --insecure-probe to test")
+        _line(INFO, "HTTP as well (this sends the key unencrypted)")
     _line(TICK if result["state"] == "ok" else CROSS, result["headline"])
     for sentence in str(result.get("detail", "")).split(". "):
         if sentence.strip():

@@ -7,6 +7,7 @@ quality under a key with a hyphen in it.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from ..domain.models import (
@@ -38,6 +39,8 @@ _UPSTREAM_ERRORS = {
                 "Marine data needs a paid plan; set MARINE_ENABLED=0 to skip it."),
     9999: (502, "WeatherAPI reported an internal error. Try again shortly."),
 }
+
+_log = logging.getLogger(__name__)
 
 _ALERT_TONES = {
     "extreme": "bad", "severe": "bad", "moderate": "warn", "minor": "warn",
@@ -125,22 +128,25 @@ class WeatherAPIProvider:
         return payload
 
     def _annotate(self, status: int, remedy: str) -> str:
-        """Lead with the key's own shape when it cannot be the right length.
+        """Flag a key of impossible length, without publishing the length.
 
-        Relaying "API key is invalid" for a value that is visibly too short
-        sends people to re-check a key that was never fully stored.
+        The exact size of a rejected credential is useful to an attacker and
+        only useful to an operator, so the number goes to the log and the
+        response says which variable to look at.
         """
         if status != 401:
             return remedy
-        length = len(self._key)
-        if 31 <= length <= 32:
+        if 31 <= len(self._key) <= 32:
             return remedy
+        _log.warning(
+            "Configured API key is %d characters; WeatherAPI keys are 31-32. "
+            "The stored value is truncated or is not a WeatherAPI key.",
+            len(self._key),
+        )
         return (
-            f"The key this app is using is {length} characters, but WeatherAPI "
-            f"keys are 31-32. The stored value is truncated or is not a "
-            f"WeatherAPI key - check the API_KEY environment variable on the "
-            f"host that served this request, not just your local .env. "
-            f"({remedy})"
+            "The configured API key is not the expected length, so it cannot be "
+            "valid. Check the API_KEY environment variable on the host serving "
+            f"this request, not just your local .env. ({remedy})"
         )
 
     def _can_downgrade(self, status: int) -> bool:

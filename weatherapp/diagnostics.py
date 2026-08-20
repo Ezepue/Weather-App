@@ -33,7 +33,7 @@ def charset(value: str) -> str:
     return description
 
 
-def probe(settings, key: str, raw: str | None, http=None) -> list[dict]:
+def probe(settings, key: str, raw: str | None, http=None, schemes=("https",)) -> list[dict]:
     """Try every combination of the things this rewrite changed.
 
     The previous version interpolated the key into an HTTP URL with no
@@ -47,7 +47,7 @@ def probe(settings, key: str, raw: str | None, http=None) -> list[dict]:
         values.append(("raw", raw.strip()))
 
     results = []
-    for scheme in SCHEMES:
+    for scheme in schemes:
         for label, value in values:
             for style in STYLES:
                 url = f"{scheme}://{host}/current.json"
@@ -117,7 +117,8 @@ def verdict(results: list[dict]) -> dict:
     }
 
 
-def diagnose(settings, raw_key: str | None, source: str, http=None) -> dict:
+def diagnose(settings, raw_key: str | None, source: str, http=None,
+             schemes=("https",)) -> dict:
     credential = sanitize(raw_key)
     report = {
         "provider": settings.active_provider,
@@ -141,6 +142,6 @@ def diagnose(settings, raw_key: str | None, source: str, http=None) -> dict:
         }
         return report
 
-    report["probes"] = probe(settings, credential.value, raw_key, http=http)
+    report["probes"] = probe(settings, credential.value, raw_key, http=http, schemes=schemes)
     report["verdict"] = verdict(report["probes"])
     return report

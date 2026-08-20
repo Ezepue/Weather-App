@@ -252,11 +252,19 @@ class TestShapeIsReportedBeforeBlamingTheKey:
             provider.fetch("London")
         return str(caught.value)
 
-    def test_short_key_is_named_as_the_cause(self):
+    def test_short_key_points_at_the_variable_without_publishing_its_size(self):
         message = self._fetch("abc123def456789")
-        assert "15 characters" in message
-        assert "31-32" in message
         assert "environment variable" in message
+        assert "not the expected length" in message
+        # The exact size of a rejected credential helps an attacker and no one else.
+        assert "15" not in message
+        assert "31-32" not in message
+
+    def test_the_length_goes_to_the_log_for_the_operator(self, caplog):
+        import logging
+        with caplog.at_level(logging.WARNING):
+            self._fetch("abc123def456789")
+        assert "15 characters" in caplog.text
 
     def test_correct_length_key_gets_the_ordinary_remedy(self):
         message = self._fetch("0123456789abcdef0123456789abcdef")
