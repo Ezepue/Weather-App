@@ -98,9 +98,20 @@ def _activity_keys():
 def healthz():
     provider = current_app.extensions["barograph"]["provider"]
     stats = provider.stats() if hasattr(provider, "stats") else {}
+    settings = _settings()
     return json_response({
         "status": "ok",
-        "provider": _settings().active_provider,
-        "version": _settings().version,
+        "provider": settings.active_provider,
+        "version": settings.version,
         "cache": stats,
+        # Enough to diagnose a key problem on a host where the CLI cannot be
+        # run. Deliberately excludes the value, masked or otherwise: this
+        # endpoint is public.
+        "key": {
+            "configured": bool(settings.api_key),
+            "status": settings.key_status,
+            "source": settings.key_source or None,
+            "length": len(settings.api_key),
+            "normalised": list(settings.key_repairs),
+        },
     }, max_age=0)

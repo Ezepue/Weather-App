@@ -57,10 +57,43 @@ export function applyUnitPreset(settings, preset) {
   return { ...settings, units: preset, ...(UNIT_PRESETS[preset] || {}) };
 }
 
+/* "auto" is not a look, it is a deferral to the OS. Anything that needs to
+   know what is actually on screen - the toggle, the button label - has to
+   resolve it, or it will offer a switch to the theme already showing. */
+export function systemAppearance() {
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "draft" : "cyanotype";
+}
+
+export function resolveAppearance(settings) {
+  return settings.theme === "auto" ? systemAppearance() : settings.theme;
+}
+
+/* Only meaningful while theme is "auto"; the callback re-applies so the page
+   follows an OS switch instead of waiting for a reload. */
+export function watchSystemAppearance(onChange) {
+  const query = window.matchMedia?.("(prefers-color-scheme: light)");
+  if (!query) return () => {};
+  const handler = () => onChange(systemAppearance());
+  query.addEventListener("change", handler);
+  return () => query.removeEventListener("change", handler);
+}
+
 export function applyToDocument(settings) {
   const root = document.documentElement;
   if (settings.theme === "auto") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", settings.theme);
+  const appearance = resolveAppearance(settings);
+  root.setAttribute("data-appearance", appearance);
+  /* Two media-scoped theme-color tags handle "auto" with no JS. An explicit
+     theme has to override both, or the browser chrome keeps following the OS. */
+  const DARK = "#0a1a2f";
+  const LIGHT = "#eef3f8";
+  document.querySelectorAll('meta[name="theme-color"]').forEach((tag) => {
+    const wantsLight = (tag.getAttribute("media") || "").includes("light");
+    tag.setAttribute("content", settings.theme === "auto"
+      ? (wantsLight ? LIGHT : DARK)
+      : (appearance === "draft" ? LIGHT : DARK));
+  });
   root.setAttribute("data-density", settings.density);
   root.setAttribute("data-contrast", settings.contrast);
   if (settings.motion === "system") root.removeAttribute("data-motion");

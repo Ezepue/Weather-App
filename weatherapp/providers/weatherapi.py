@@ -17,6 +17,25 @@ from ..domain.protocols import ProviderError
 from ..meteorology import air, conditions, thermal, wind
 from .base import parse_latlon
 
+# WeatherAPI's documented error codes. The upstream message alone ("API key is
+# invalid.") does not say which of several very different things went wrong, so
+# each code carries the remedy for that specific case.
+_UPSTREAM_ERRORS = {
+    1002: (401, "No API key was sent. Set API_KEY in .env at the project root."),
+    1003: (400, "No place was supplied in the request."),
+    1005: (400, "The request URL was malformed. Check WEATHER_BASE_URL."),
+    1006: (404, "No matching place found. Try a larger nearby town, or 'lat,lon'."),
+    2006: (401, "WeatherAPI rejected the key. Copy it again from "
+                "weatherapi.com/my-account - a fresh key can take a few minutes "
+                "to activate, and trial keys expire after 14 days. "
+                "Run 'python -m weatherapp.doctor' to see the key being sent."),
+    2007: (429, "This key is over its monthly call quota."),
+    2008: (401, "This key has been disabled in your WeatherAPI account."),
+    2009: (403, "This key's plan does not include that endpoint. "
+                "Marine data needs a paid plan; set MARINE_ENABLED=0 to skip it."),
+    9999: (502, "WeatherAPI reported an internal error. Try again shortly."),
+}
+
 _ALERT_TONES = {
     "extreme": "bad", "severe": "bad", "moderate": "warn", "minor": "warn",
 }
@@ -64,12 +83,24 @@ class WeatherAPIProvider:
         self._base = base_url.rstrip("/") + "/"
         self._marine_enabled = marine_enabled
 
+    def _get(self, path: str, params: dict) -> dict:
+        """Fetch and translate the upstream error envelope into domain terms."""
+        payload = self._http.get_json(self._base + path, {"key": self._key, **params})
+        if isinstance(payload, dict) and payload.get("error"):
+            error = payload["error"] or {}
+            code = error.get("code")
+            status, remedy = _UPSTREAM_ERRORS.get(
+                code, (400, error.get("message") or "Upstream rejected the request")
+            )
+            raise ProviderError(remedy, status=status, kind="auth" if status in (401, 403) else "upstream")
+        return payload
+
     # ---- WeatherProvider ------------------------------------------------
 
     def search(self, query: str, limit: int = 8) -> list[dict]:
         if not (query or "").strip():
             return []
-        rows = self._http.get_json(self._base + "search.json", {"key": self._key, "q": query})
+        rows = self._get("search.json", {"q": query})
         if not isinstance(rows, list):
             return []
         return [
@@ -86,9 +117,9 @@ class WeatherAPIProvider:
         ]
 
     def fetch(self, query: str, days: int = 3) -> ProviderBundle:
-        payload = self._http.get_json(
-            self._base + "forecast.json",
-            {"key": self._key, "q": query, "days": max(1, days), "aqi": "yes", "alerts": "yes"},
+        payload = self._get(
+            "forecast.json",
+            {"q": query, "days": max(1, days), "aqi": "yes", "alerts": "yes"},
         )
         location = payload.get("location") or {}
         current = payload.get("current") or {}
@@ -310,11 +341,11 @@ class WeatherAPIProvider:
         if parse_latlon(query) is None:
             target = query
         try:
-            payload = self._http.get_json(
-                self._base + "marine.json", {"key": self._key, "q": target, "days": 1}
-            )
-        except ProviderError:
-            return None, None
+            payload = self._get("marine.json", {"q": target, "days": 1})
+        except ProviderError as exc:
+            # Inland places 400 here and free plans 403; neither is fatal to a
+            # report, but a plan problem is worth surfacing once.
+            return None, (str(exc) if exc.status == 403 else None)
 
         days = (payload.get("forecast") or {}).get("forecastday") or []
         if not days:

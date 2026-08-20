@@ -36,22 +36,15 @@ class HttpClient:
 
     @staticmethod
     def _decode(response) -> dict:
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise ProviderError("Upstream sent a malformed response", 502, "decode") from exc
+        """Return the body for any status below 500.
 
-        # WeatherAPI reports its own errors inside a 200-or-4xx JSON envelope.
-        if isinstance(payload, dict) and "error" in payload:
-            error = payload["error"] or {}
-            code = error.get("code")
-            message = error.get("message") or "Upstream rejected the request"
-            # 1006 is "no matching location", which is the user's input, not a fault.
-            status = 404 if code == 1006 else (401 if code in (1002, 2006, 2008) else 400)
-            raise ProviderError(message, status=status, kind="upstream")
-
+        A 4xx from a JSON API carries the upstream's own explanation, and only
+        the provider adapter knows how to read it. Raising here would throw that
+        explanation away and leave the caller guessing.
+        """
         if response.status_code >= 500:
             raise ProviderError("Weather service is having problems", 502, "upstream")
-        if response.status_code >= 400:
-            raise ProviderError("Weather service rejected the request", 400, "upstream")
-        return payload
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise ProviderError("Upstream sent a malformed response", 502, "decode") from exc

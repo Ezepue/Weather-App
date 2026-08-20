@@ -145,8 +145,9 @@ registerPanel({
       ]),
       el("div", {}, [
         el("span", { class: "label", text: "Sunscreen?" }),
-        el("p", { class: `datum__value tone-${sunscreen.tone}`, text: sunscreen.needed ? "Yes" : "No" }),
-        el("p", { class: "caption", text: sunscreen.verdict }),
+        el("p", { class: `datum__value tone-${sunscreen.tone}`,
+                  text: sunscreen.needed ? "Yes" : (sunscreen.when === "later" ? "Later" : "No") }),
+        el("p", { class: "caption", text: sunscreen.detail || sunscreen.verdict }),
       ]),
       el("div", {}, [
         el("span", { class: "label", text: "Best use of today" }),

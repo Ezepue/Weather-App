@@ -166,8 +166,10 @@ export function stationPlot(current, formatter, { size = 230 } = {}) {
     svg("text", { class: "station-text", x: c - 20, y: c - 10, "text-anchor": "end" }, [temp]),
     svg("text", { class: "station-text", x: c - 20, y: c + 18, "text-anchor": "end", fill: "var(--precip)" }, [dew]),
     svg("text", { class: "station-text", x: c + 20, y: c - 10 }, [pressureCode]),
-    svg("text", { class: "station-text", x: c + 20, y: c + 18, fill: "var(--ink-3)", "font-size": 10 }, [`${current.cloud}%`]),
   );
+  /* Sky cover is the circle fill in the station model, so a numeric percentage
+     here duplicated it and collided with the barb whenever the wind blew into
+     the lower-right quadrant. The number lives in the full reading instead. */
 
   const symbol = conditionSymbol(current.condition.slug, { isDay: current.is_day, size: 26 });
   const holder = svg("g", { transform: `translate(${c - 62} ${c - 13})`, color: "var(--ink-2)" });
@@ -177,7 +179,8 @@ export function stationPlot(current, formatter, { size = 230 } = {}) {
   return svg("svg", {
     viewBox: `0 0 ${size} ${size}`, width: size, height: size,
     role: "img",
-    "aria-label": `Station plot: ${current.condition.text}, ${temp}, dew point ${dew}, pressure ${current.pressure_mb} millibars`,
+    "aria-label": `Station plot: ${current.condition.text}, ${temp}, dew point ${dew}, `
+      + `pressure ${current.pressure_mb} millibars, sky cover ${current.cloud} percent`,
   }, children);
 }
 

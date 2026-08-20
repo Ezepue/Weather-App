@@ -186,3 +186,41 @@ class TestBuild:
 
     def test_summary_mentions_the_place(self, report):
         assert report.place.name in report.advice.summary
+
+
+class TestSunscreenTiming:
+    """UV peak looks 24h ahead, so at night it is tomorrow's noon."""
+
+    class Snap:
+        def __init__(self, uv, uv_max):
+            self.uv = uv
+            self.uv_max_today = uv_max
+            self.hourly = []
+            self.now_epoch = 0
+
+    def test_does_not_advise_spf_at_night(self):
+        from weatherapp.advice.guidance import sunscreen
+        result = sunscreen(self.Snap(uv=0, uv_max=3.3))
+        assert result["needed"] is False
+        assert result["when"] == "later"
+        assert "right now" in result["verdict"]
+        assert "reaches 3.3 later" in result["detail"]
+
+    def test_advises_spf_when_uv_is_high_now(self):
+        from weatherapp.advice.guidance import sunscreen
+        result = sunscreen(self.Snap(uv=8.4, uv_max=9.0))
+        assert result["needed"] is True
+        assert result["when"] == "now"
+        assert "SPF 30+" in result["verdict"]
+
+    def test_no_advice_when_uv_never_matters(self):
+        from weatherapp.advice.guidance import sunscreen
+        result = sunscreen(self.Snap(uv=0, uv_max=1.2))
+        assert result["needed"] is False
+        assert result["when"] == "none"
+
+    def test_burn_time_shortens_as_uv_rises(self):
+        from weatherapp.advice.guidance import sunscreen
+        mild = sunscreen(self.Snap(uv=4, uv_max=4))["burn_minutes"]
+        fierce = sunscreen(self.Snap(uv=11, uv_max=11))["burn_minutes"]
+        assert fierce < mild

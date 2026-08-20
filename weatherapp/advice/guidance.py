@@ -40,12 +40,33 @@ def umbrella(snapshot) -> dict:
 
 
 def sunscreen(snapshot) -> dict:
-    """Burn time uses the common Fitzpatrick II approximation, 200 / (UV x 3)."""
+    """Burn time uses the common Fitzpatrick II approximation, 200 / (UV x 3).
+
+    The peak looks 24 hours ahead, which at night is tomorrow lunchtime. Advice
+    keyed off that peak alone told people to apply SPF 30 at midnight, so the
+    current UV decides whether this is advice for now or a heads-up for later.
+    """
     uv_max = snapshot.uv_max_today
-    if uv_max < 3:
-        return {"needed": False, "verdict": "Not needed today", "tone": "ok", "burn_minutes": None}
+    uv_now = snapshot.uv or 0
     _, peak_at = timeline.peak_uv(snapshot.hourly, snapshot.now_epoch)
+
+    if uv_max < 3:
+        return {"needed": False, "verdict": "Not needed today", "tone": "ok",
+                "burn_minutes": None, "when": "none"}
+
     burn = int(200 / (uv_max * 3))
+    if uv_now < 3:
+        return {
+            "needed": False,
+            "verdict": "Not needed right now",
+            "detail": f"UV is {round(uv_now, 1)}. It reaches {round(uv_max, 1)} later - "
+                      f"about {burn} min to burn then.",
+            "tone": "ok",
+            "burn_minutes": burn,
+            "peak_uv": round(uv_max, 1),
+            "peak_at": peak_at,
+            "when": "later",
+        }
     return {
         "needed": True,
         "verdict": f"SPF 30+ - unprotected skin burns in about {burn} min",
@@ -53,6 +74,7 @@ def sunscreen(snapshot) -> dict:
         "burn_minutes": burn,
         "peak_uv": round(uv_max, 1),
         "peak_at": peak_at,
+        "when": "now",
     }
 
 

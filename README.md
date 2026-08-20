@@ -42,6 +42,36 @@ Get a free key from [weatherapi.com](https://www.weatherapi.com/). With a key
 present the app switches to live data automatically; the demo provider is the
 fallback, not a mode you have to turn off.
 
+`.env` is read from the project root regardless of where you run the command
+from, and it overrides an already-exported `API_KEY` - if you just edited the
+file, the file wins.
+
+### "API key is invalid"
+
+That sentence comes from WeatherAPI, not from this app, and it means the key
+reached them and was rejected. Diagnose it with:
+
+```sh
+python -m weatherapp.doctor
+```
+
+It reports which variable supplied the key, what the key looks like after
+normalisation (masked), and what the upstream says about it. Common causes:
+
+| Cause | What the doctor shows |
+|---|---|
+| Key still the placeholder | `the key is still the placeholder` |
+| Whole `API_KEY=...` line or dashboard URL pasted as the value | `normalised: stripped a key= prefix` |
+| Key correct but newly created | shape `ok`, upstream `2006` - new keys can take a few minutes to activate |
+| Trial expired | shape `ok`, upstream `2006` - WeatherAPI trials lapse after 14 days |
+| Over quota | upstream `2007`, reported as HTTP 429 |
+| Free plan, marine requested | upstream `2009` - set `MARINE_ENABLED=0` |
+
+Pasted quotes, a trailing carriage return, a `key=` prefix and a full request
+URL are all repaired automatically, so a mangled `.env` line is no longer a
+silent failure. On a host where you cannot run the CLI, `GET /api/v1/healthz`
+reports the key's status and source (never its value).
+
 ### Configuration
 
 | Variable | Default | Meaning |
