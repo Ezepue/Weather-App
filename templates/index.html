@@ -1,108 +1,112 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather App</title>
-    
-    <!-- Weather Icons Library -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.10/css/weather-icons.min.css">
-    
-    <!-- Custom Styles -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
-    <!-- JavaScript -->
-    <script defer src="{{ url_for('static', filename='script.js') }}"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Barograph — {{ query }}</title>
+<meta name="description" content="Barograph reads the atmosphere as a technical drawing: current conditions, a 48-hour meteogram, air quality, sun and moon geometry, and a straight answer about whether you need an umbrella.">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0a1a2f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef3f8" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.png') }}">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+<script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
 <body>
 
-    <button id="dark-mode-toggle"><i class="wi wi-moon-alt-new"></i></button>
+<div class="sheet-ground" aria-hidden="true"></div>
+<div class="isobar-field" id="isobar-field" aria-hidden="true"></div>
+<a class="skip-link" href="#panel-grid">Skip to the weather</a>
+<p id="live-status" class="visually-hidden" role="status" aria-live="polite"></p>
 
-    <div class="container">
-        <h1>Weather App</h1>
-        <form method="POST" id="weather-form">
-            <div class="search-container">
-                <input type="text" name="city" id="city-input" placeholder="Enter city name" required>
-                <button type="submit"><i class="wi wi-day-sunny"></i> Get Weather</button>
-            </div>
-            <p id="loading-text" style="display: none;">Fetching weather data...</p>
-        </form>
-        
+<div class="sheet">
 
-        {% if weather and weather.location and weather.current %}
-            <div class="weather-info">
-                <h2><i class="wi wi-day-cloudy"></i> Current Weather in {{ weather.location.name }}, {{ weather.location.country }}</h2>
-                <div class="weather-card">
-                    <p><i class="wi wi-thermometer"></i> Temperature: {{ weather.current.temp_c }}°C</p>
-                    <p>Condition: <i class="wi wi-{{ weather.current.condition.icon }}"></i> {{ weather.current.condition.text }}</p>
-                    {% if weather.current.air_quality %}
-                        <p><i class="wi wi-dust"></i> Air Quality Index: {{ weather.current.air_quality.pm2_5 }}</p>
-                    {% else %}
-                        <p>Air Quality Data not available.</p>
-                    {% endif %}
-                </div>
-            </div>
-        {% else %}
-            <p>Weather data not available.</p>
-        {% endif %}
-
-        <div class="section-spacing"></div>
-
-        {% if forecast and forecast.forecast and forecast.forecast.forecastday %}
-            <div class="forecast">
-                <h2><i class="wi wi-day-sunny-overcast"></i> 3-Day Forecast</h2>
-                {% for day in forecast.forecast.forecastday %}
-                    <div class="weather-card">
-                        <p>{{ day.date }} - {{ day.day.condition.text }}</p>
-                        <p><i class="wi wi-hot"></i> High: {{ day.day.maxtemp_c }}°C | <i class="wi wi-snowflake-cold"></i> Low: {{ day.day.mintemp_c }}°C</p>
-                    </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p>No forecast data available.</p>
-        {% endif %}
-
-        <div class="section-spacing"></div>
-
-        {% if timezone and timezone.location %}
-            <div class="timezone">
-                <h2><i class="wi wi-time-3"></i> Timezone Info</h2>
-                <div class="weather-card">
-                    <p><i class="wi wi-time-6"></i> Local Time: {{ timezone.location.localtime }}</p>
-                </div>
-            </div>
-        {% else %}
-            <p>Timezone data not available.</p>
-        {% endif %}
-
-        <div class="section-spacing"></div>
-
-        {% if marine and marine.forecast and marine.forecast.forecastday %}
-            <div class="marine">
-                <h2><i class="wi wi-tsunami"></i> Marine Weather</h2>
-                <div class="weather-card">
-                    <p><i class="wi wi-windy"></i> Wave Height: {{ marine.forecast.forecastday[0].day.maxtemp_c }} meters</p>
-                </div>
-            </div>
-        {% else %}
-            <p>Marine data not available.</p>
-        {% endif %}
-
-        <div class="section-spacing"></div>
-
-        {% if astronomy and astronomy.astronomy and astronomy.astronomy.astro %}
-            <div class="astronomy">
-                <h2><i class="wi wi-stars"></i> Astronomy Data</h2>
-                <div class="weather-card">
-                    <p><i class="wi wi-sunrise"></i> Sunrise: {{ astronomy.astronomy.astro.sunrise }}</p>
-                    <p><i class="wi wi-sunset"></i> Sunset: {{ astronomy.astronomy.astro.sunset }}</p>
-                    <p><i class="wi wi-moon-alt-waning-crescent-4"></i> Moon Phase: {{ astronomy.astronomy.astro.moon_phase }}</p>
-                </div>
-            </div>
-        {% else %}
-            <p>Astronomy data not available.</p>
-        {% endif %}
+  <header class="masthead">
+    <div>
+      <h1 class="masthead__title">
+        <span class="masthead__mark" aria-hidden="true">◴</span>
+        <span>Barograph</span>
+        <span class="label" style="font-size:var(--step-1);text-transform:none;letter-spacing:0" id="place-name">{{ query }}</span>
+      </h1>
+      <div class="masthead__sub" id="place-meta"></div>
     </div>
 
+    <div class="masthead__tools">
+      <form class="search" id="search-form" role="search" autocomplete="off">
+        <label class="visually-hidden" for="search-input">Search for a place</label>
+        <div class="search__row">
+          <input class="field" id="search-input" name="q" type="search"
+                 placeholder="Search a place, or 51.5,-0.12"
+                 role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list">
+          <button class="btn btn--primary" type="submit">Go</button>
+        </div>
+        <ul class="search__results" id="search-results" role="listbox" aria-label="Place suggestions"></ul>
+      </form>
+
+      <button class="btn" type="button" id="btn-refresh" title="Refresh (R)">Refresh</button>
+      <button class="btn" type="button" id="btn-units" title="Toggle units (U)">Units</button>
+      <button class="btn" type="button" id="btn-theme" title="Cycle theme (T)">Theme</button>
+      <button class="btn" type="button" id="btn-share" title="Share this view">Share</button>
+      <button class="btn" type="button" id="btn-palette" title="Command palette">⌘K</button>
+      <button class="btn btn--icon" type="button" id="btn-help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">?</button>
+    </div>
+  </header>
+
+  <div id="notices" class="stack" style="margin-bottom:var(--space-4)"></div>
+
+  {% if initial_error %}
+    <div class="notice tone-bad" role="alert">
+      <span>{{ initial_error.message }}</span>
+    </div>
+  {% endif %}
+
+  <main class="grid" id="panel-grid">
+    <noscript>
+      <section class="panel span-12">
+        <h2 class="label">JavaScript is off</h2>
+        <p>Barograph draws its instruments in the browser. The raw data is still available at
+          <a href="/api/v1/report?q={{ query|urlencode }}">/api/v1/report</a>.</p>
+      </section>
+    </noscript>
+  </main>
+
+  <footer class="titleblock" id="titleblock"></footer>
+
+  <p class="caption" style="margin-top:var(--space-4)">
+    Barograph v{{ settings.version }} ·
+    {% if settings.live %}Live data from WeatherAPI{% else %}Demo mode — modelled data. Set <code>API_KEY</code> for live weather.{% endif %} ·
+    <a href="/api/v1/report?q={{ query|urlencode }}">JSON</a>
+  </p>
+</div>
+
+<!-- Command palette -->
+<div class="palette-backdrop" id="palette" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Command palette">
+    <input class="palette__input field" id="palette-input" type="text" placeholder="Type a command or a saved place…" aria-label="Command">
+    <ul class="palette__list" id="palette-list" role="listbox" aria-label="Commands"></ul>
+  </div>
+</div>
+
+<!-- Keyboard help -->
+<div class="palette-backdrop" id="help-overlay" hidden>
+  <div class="palette" role="dialog" aria-modal="true" aria-labelledby="help-title">
+    <div class="row row--between" style="padding:var(--space-4);border-bottom:1px solid var(--rule)">
+      <h2 class="label" id="help-title">Keyboard shortcuts</h2>
+      <button class="btn btn--ghost" type="button" id="help-close">Close</button>
+    </div>
+    <div id="help-body" style="padding:var(--space-4)"></div>
+  </div>
+</div>
+
+<script id="initial-report" type="application/json">{{ initial_report|tojson if initial_report else "" }}</script>
 </body>
 </html>

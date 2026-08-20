@@ -1,0 +1,21 @@
+{
+  "name": "Barograph — weather as a technical drawing",
+  "short_name": "Barograph",
+  "description": "Current conditions, a 48-hour meteogram, air quality, sun and moon geometry, and a straight answer about the umbrella.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a1a2f",
+  "theme_color": "#0a1a2f",
+  "categories": ["weather", "utilities"],
+  "icons": [
+    { "src": "/static/img/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "My location", "url": "/?locate=1" },
+    { "name": "London", "url": "/?q=London" }
+  ]
+}

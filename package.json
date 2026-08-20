@@ -1,6 +1,10 @@
 {
-    "scripts": {
-      "start": "gunicorn -b 0.0.0.0:8000 app:app"
-    }
+  "name": "barograph",
+  "private": true,
+  "description": "Weather as a technical drawing of the atmosphere",
+  "scripts": {
+    "start": "gunicorn -b 0.0.0.0:8000 app:app",
+    "dev": "python app.py",
+    "test": "python -m pytest -q"
   }
-  
+}

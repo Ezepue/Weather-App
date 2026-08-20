@@ -7,3 +7,9 @@ node_modules/
 __pycache__/
 .DS_Store
 .vercel
+
+# Python
+.pytest_cache/
+*.pyc
+venv/
+.venv/

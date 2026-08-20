@@ -1,0 +1,167 @@
+/* Barograph design tokens - "Synoptic Blueprint"
+   The page is a technical drawing of the atmosphere: cyanotype ground, chalk
+   hairlines, no rounded corners, no shadows. Depth comes from line weight
+   (0.5 / 1 / 2px), never from blur. Every text colour below was checked
+   against its background and clears WCAG AA; most clear AAA. */
+
+:root {
+  /* ---- type -------------------------------------------------------- */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --step--2: 0.6875rem;   /* 11px - micro labels, never smaller */
+  --step--1: 0.8125rem;   /* 13px - captions */
+  --step-0: 0.9375rem;    /* 15px - body floor */
+  --step-1: 1.125rem;     /* 18px */
+  --step-2: 1.5rem;       /* 24px */
+  --step-3: 2rem;         /* 32px */
+  --step-4: clamp(2.75rem, 7vw, 4.25rem);   /* headline readout */
+  --step-5: clamp(3.5rem, 12vw, 6.5rem);    /* the temperature */
+
+  --leading-tight: 1.15;
+  --leading-body: 1.55;
+  --tracking-label: 0.06em;
+
+  /* ---- geometry ---------------------------------------------------- */
+  --radius: 0px;
+  --hair: 1px;
+  --hair-strong: 2px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --sheet-max: 1360px;
+  --gutter: clamp(0.875rem, 3vw, 2rem);
+
+  /* ---- motion ------------------------------------------------------ */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur: 240ms;
+  --dur-slow: 620ms;
+}
+
+/* ---- Cyanotype: the default, a blueprint under darkroom light ------- */
+:root,
+:root[data-theme="cyanotype"] {
+  color-scheme: dark;
+
+  --ground: #0a1a2f;
+  --ground-2: #0d2138;
+  --ground-3: #123050;
+  --ground-sunk: #071426;
+
+  --ink: #e6eef8;
+  --ink-2: #a9c0d8;
+  --ink-3: #7f9bb8;
+
+  --rule: rgba(169, 192, 216, 0.24);
+  --rule-strong: rgba(169, 192, 216, 0.52);
+  --grid: rgba(120, 170, 220, 0.10);
+  --grid-fine: rgba(120, 170, 220, 0.05);
+  --isobar: rgba(120, 175, 225, 0.30);
+
+  --cold: #4ea3ff;
+  --warm: #ff8266;
+  --precip: #3ddba0;
+  --caution: #ffc857;
+  --danger: #ff7b7b;
+  --violet: #b9a3ff;
+
+  --ok: var(--precip);
+  --warn: var(--caution);
+  --bad: var(--danger);
+
+  --accent: var(--cold);
+  --accent-ink: #04121f;
+  --field: rgba(255, 255, 255, 0.05);
+  --field-focus: rgba(78, 163, 255, 0.14);
+  --wash: rgba(78, 163, 255, 0.08);
+  --scrim: rgba(4, 12, 22, 0.82);
+}
+
+/* ---- Draft: the same drawing printed on paper ----------------------- */
+:root[data-theme="draft"] {
+  color-scheme: light;
+
+  --ground: #eef3f8;
+  --ground-2: #ffffff;
+  --ground-3: #e2eaf3;
+  --ground-sunk: #e6edf4;
+
+  --ink: #0f2c4d;
+  --ink-2: #3a5f85;
+  --ink-3: #55708c;
+
+  --rule: rgba(15, 44, 77, 0.20);
+  --rule-strong: rgba(15, 44, 77, 0.45);
+  --grid: rgba(15, 44, 77, 0.09);
+  --grid-fine: rgba(15, 44, 77, 0.045);
+  --isobar: rgba(15, 60, 110, 0.22);
+
+  --cold: #0a63c9;
+  --warm: #c1391b;
+  --precip: #0d7a56;
+  --caution: #8a6100;
+  --danger: #c02626;
+  --violet: #5b46b8;
+
+  --accent: var(--cold);
+  --accent-ink: #ffffff;
+  --field: rgba(15, 44, 77, 0.04);
+  --field-focus: rgba(10, 99, 201, 0.10);
+  --wash: rgba(10, 99, 201, 0.07);
+  --scrim: rgba(20, 40, 62, 0.55);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --ground: #eef3f8; --ground-2: #ffffff; --ground-3: #e2eaf3; --ground-sunk: #e6edf4;
+    --ink: #0f2c4d; --ink-2: #3a5f85; --ink-3: #55708c;
+    --rule: rgba(15, 44, 77, 0.20); --rule-strong: rgba(15, 44, 77, 0.45);
+    --grid: rgba(15, 44, 77, 0.09); --grid-fine: rgba(15, 44, 77, 0.045);
+    --isobar: rgba(15, 60, 110, 0.22);
+    --cold: #0a63c9; --warm: #c1391b; --precip: #0d7a56; --caution: #8a6100;
+    --danger: #c02626; --violet: #5b46b8;
+    --accent-ink: #ffffff;
+    --field: rgba(15, 44, 77, 0.04); --field-focus: rgba(10, 99, 201, 0.10);
+    --wash: rgba(10, 99, 201, 0.07); --scrim: rgba(20, 40, 62, 0.55);
+  }
+}
+
+/* ---- User overrides ------------------------------------------------- */
+
+/* Higher contrast: darken the ground, brighten the ink, thicken the rules. */
+:root[data-contrast="high"] {
+  --ink-2: var(--ink);
+  --ink-3: var(--ink-2);
+  --rule: var(--rule-strong);
+  --grid: transparent;
+  --grid-fine: transparent;
+  --isobar: transparent;
+}
+:root[data-theme="cyanotype"][data-contrast="high"] { --ground: #04101d; --ground-2: #071829; }
+:root[data-theme="draft"][data-contrast="high"] { --ground: #ffffff; --ground-2: #ffffff; --ink: #06203a; }
+
+:root[data-density="compact"] {
+  --space-4: 0.625rem; --space-5: 0.875rem; --space-6: 1.25rem; --space-7: 1.75rem;
+  --step-5: clamp(2.75rem, 9vw, 4.5rem);
+  --step-4: clamp(2rem, 5vw, 3rem);
+}
+
+:root[data-motion="off"] * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion="on"]) * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
