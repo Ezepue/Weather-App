@@ -120,9 +120,28 @@ class WeatherAPIProvider:
 
         if failure:
             status, remedy = failure
-            raise ProviderError(remedy, status=status,
+            raise ProviderError(self._annotate(status, remedy), status=status,
                                 kind="auth" if status in (401, 403) else "upstream")
         return payload
+
+    def _annotate(self, status: int, remedy: str) -> str:
+        """Lead with the key's own shape when it cannot be the right length.
+
+        Relaying "API key is invalid" for a value that is visibly too short
+        sends people to re-check a key that was never fully stored.
+        """
+        if status != 401:
+            return remedy
+        length = len(self._key)
+        if 31 <= length <= 32:
+            return remedy
+        return (
+            f"The key this app is using is {length} characters, but WeatherAPI "
+            f"keys are 31-32. The stored value is truncated or is not a "
+            f"WeatherAPI key - check the API_KEY environment variable on the "
+            f"host that served this request, not just your local .env. "
+            f"({remedy})"
+        )
 
     def _can_downgrade(self, status: int) -> bool:
         return (

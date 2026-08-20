@@ -233,3 +233,50 @@ class TestHttpFallback:
             self._provider(AlwaysInvalid()).fetch("London")
         assert "HTTP" in str(caught.value)
         assert "WEATHER_BASE_URL" in str(caught.value)
+
+
+class TestShapeIsReportedBeforeBlamingTheKey:
+    """A visibly short key should not send people to re-copy a good one."""
+
+    class Reject:
+        def get_json(self, url, params=None):
+            return {"error": {"code": 2006, "message": "API key is invalid."}}
+
+    def _fetch(self, key):
+        provider = WeatherAPIProvider(
+            http=self.Reject(), api_key=key,
+            base_url="https://api.weatherapi.com/v1/",
+            marine_enabled=False, allow_http_fallback=False,
+        )
+        with pytest.raises(ProviderError) as caught:
+            provider.fetch("London")
+        return str(caught.value)
+
+    def test_short_key_is_named_as_the_cause(self):
+        message = self._fetch("abc123def456789")
+        assert "15 characters" in message
+        assert "31-32" in message
+        assert "environment variable" in message
+
+    def test_correct_length_key_gets_the_ordinary_remedy(self):
+        message = self._fetch("0123456789abcdef0123456789abcdef")
+        assert "characters, but WeatherAPI" not in message
+
+    def test_the_key_is_never_echoed_in_the_error(self):
+        secret = "abc123def456789"
+        assert secret not in self._fetch(secret)
+
+    def test_shape_note_is_only_for_auth_failures(self):
+        """A missing place with a short key is still a missing place."""
+        class NotFound:
+            def get_json(self, url, params=None):
+                return {"error": {"code": 1006, "message": "No matching location found."}}
+
+        provider = WeatherAPIProvider(
+            http=NotFound(), api_key="short", base_url="https://api.weatherapi.com/v1/",
+            marine_enabled=False, allow_http_fallback=False,
+        )
+        with pytest.raises(ProviderError) as caught:
+            provider.fetch("Atlantis")
+        assert "characters" not in str(caught.value)
+        assert caught.value.status == 404
