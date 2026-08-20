@@ -116,6 +116,9 @@
   --scrim: rgba(20, 40, 62, 0.55);
 }
 
+/* First paint only: the script sets data-theme immediately, so this exists to
+   stop a dark flash on a light desktop before that runs (and to stay readable
+   with scripting off). The theme itself is a two-state stored choice. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;

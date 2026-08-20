@@ -60,12 +60,24 @@ normalisation (masked), and what the upstream says about it. Common causes:
 
 | Cause | What the doctor shows |
 |---|---|
+| **Plan has no HTTPS** (most likely if it worked before) | `works over HTTP but not HTTPS` |
 | Key still the placeholder | `the key is still the placeholder` |
 | Whole `API_KEY=...` line or dashboard URL pasted as the value | `normalised: stripped a key= prefix` |
 | Key correct but newly created | shape `ok`, upstream `2006` - new keys can take a few minutes to activate |
 | Trial expired | shape `ok`, upstream `2006` - WeatherAPI trials lapse after 14 days |
 | Over quota | upstream `2007`, reported as HTTP 429 |
 | Free plan, marine requested | upstream `2009` - set `MARINE_ENABLED=0` |
+
+WeatherAPI's free plan serves **HTTP only** and answers an HTTPS request by
+rejecting the key, so a perfectly good key reads as "invalid". The app tries
+TLS first and retries once over HTTP, which means it keeps working - but the
+key then travels in cleartext. Make it explicit to skip the failed attempt:
+
+```sh
+WEATHER_BASE_URL=http://api.weatherapi.com/v1/
+```
+
+Set `ALLOW_HTTP_FALLBACK=0` to refuse cleartext instead of downgrading.
 
 Pasted quotes, a trailing carriage return, a `key=` prefix and a full request
 URL are all repaired automatically, so a mangled `.env` line is no longer a
@@ -85,6 +97,7 @@ reports the key's status and source (never its value).
 | `HTTP_TIMEOUT` | `8` | Upstream timeout in seconds. |
 | `TIME_QUANTUM` | `60` | Bucket size for "now", which keeps ETags stable. |
 | `MARINE_ENABLED` | `true` | Request the marine product for coastal places. |
+| `ALLOW_HTTP_FALLBACK` | `true` | Retry over HTTP when the plan has no TLS. |
 
 ## API
 

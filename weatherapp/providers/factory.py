@@ -17,6 +17,7 @@ def build_provider(settings, clock, http=None):
             api_key=settings.api_key,
             base_url=settings.base_url,
             marine_enabled=settings.marine_enabled,
+            allow_http_fallback=settings.allow_http_fallback,
         )
     else:
         inner = DemoProvider(clock=clock, default_place=settings.default_place)

@@ -139,3 +139,97 @@ class TestUserFacingSurface:
         payload = response.get_json()
         assert payload["error"]["kind"] == "auth"
         assert "my-account" in payload["error"]["message"]
+
+
+class SchemeAwareHttp:
+    """Rejects HTTPS the way a plan without TLS does, and serves HTTP."""
+
+    def __init__(self, https_error_code=2006):
+        from tests.test_providers import FORECAST
+        self.https_error_code = https_error_code
+        self.forecast = FORECAST
+        self.urls = []
+
+    def get_json(self, url, params=None):
+        self.urls.append(url)
+        if url.startswith("https://"):
+            return {"error": {"code": self.https_error_code, "message": "API key is invalid."}}
+        if "forecast.json" in url:
+            return self.forecast
+        if "search.json" in url:
+            return []
+        return {"error": {"code": 1006, "message": "No matching location found."}}
+
+
+class TestHttpFallback:
+    def _provider(self, http, allow=True):
+        return WeatherAPIProvider(
+            http=http, api_key="0123456789abcdef0123456789abcdef",
+            base_url="https://api.weatherapi.com/v1/",
+            marine_enabled=False, allow_http_fallback=allow,
+        )
+
+    def test_retries_over_http_when_https_rejects_the_key(self):
+        http = SchemeAwareHttp()
+        provider = self._provider(http)
+        bundle = provider.fetch("London", days=1)
+
+        assert provider.downgraded is True
+        assert bundle.place.name == "London"
+        assert http.urls[0].startswith("https://"), "must try TLS first"
+        assert any(u.startswith("http://") for u in http.urls)
+
+    def test_cleartext_downgrade_is_disclosed_not_silent(self):
+        provider = self._provider(SchemeAwareHttp())
+        bundle = provider.fetch("London", days=1)
+        joined = " ".join(bundle.notices).lower()
+        assert "http" in joined
+        assert "unencrypted" in joined
+
+    def test_fallback_can_be_refused(self):
+        provider = self._provider(SchemeAwareHttp(), allow=False)
+        with pytest.raises(ProviderError) as caught:
+            provider.fetch("London", days=1)
+        assert caught.value.status == 401
+        assert provider.downgraded is False
+
+    def test_downgrade_happens_once_not_per_request(self):
+        http = SchemeAwareHttp()
+        provider = self._provider(http)
+        provider.fetch("London", days=1)
+        http.urls.clear()
+        provider.fetch("London", days=1)
+        assert all(u.startswith("http://") for u in http.urls), \
+            "after downgrading it must not retry TLS on every call"
+
+    def test_a_missing_place_does_not_trigger_a_downgrade(self):
+        """1006 is the user's input, not a transport problem."""
+        class NotFound:
+            def get_json(self, url, params=None):
+                return {"error": {"code": 1006, "message": "No matching location found."}}
+
+        provider = self._provider(NotFound())
+        with pytest.raises(ProviderError) as caught:
+            provider.fetch("Atlantis")
+        assert caught.value.status == 404
+        assert provider.downgraded is False
+
+    def test_invalid_over_both_schemes_still_raises(self):
+        class AlwaysInvalid:
+            def get_json(self, url, params=None):
+                return {"error": {"code": 2006, "message": "API key is invalid."}}
+
+        provider = self._provider(AlwaysInvalid())
+        with pytest.raises(ProviderError) as caught:
+            provider.fetch("London")
+        assert caught.value.status == 401
+
+    def test_remedy_names_the_https_cause(self):
+        class AlwaysInvalid:
+            def get_json(self, url, params=None):
+                return {"error": {"code": 2006, "message": "API key is invalid."}}
+
+        with pytest.raises(ProviderError) as caught:
+            self._provider(AlwaysInvalid()).fetch("London")
+        assert "HTTP" in str(caught.value)
+        assert "WEATHER_BASE_URL" in str(caught.value)

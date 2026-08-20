@@ -67,40 +67,72 @@ def run() -> int:
         return 1
 
     print("-" * 52)
-    _line(INFO, f"probing {settings.base_url}current.json ...")
+    return _probe(settings, credential.value)
+
+
+def _probe(settings, key: str) -> int:
+    """Try each endpoint over both schemes.
+
+    A free WeatherAPI plan serves HTTP only and answers an HTTPS request by
+    rejecting the key, so "invalid key" and "no TLS on this plan" are
+    indistinguishable from a single request. Two schemes tell them apart.
+    """
     http = HttpClient(timeout=settings.http_timeout, retries=0)
-    from .providers.weatherapi import WeatherAPIProvider
-
-    provider = WeatherAPIProvider(
-        http=http, api_key=credential.value,
-        base_url=settings.base_url, marine_enabled=False,
+    endpoints = (
+        ("current.json", {"q": "London", "aqi": "yes"}),
+        ("forecast.json", {"q": "London", "days": settings.forecast_days,
+                           "aqi": "yes", "alerts": "yes"}),
+        ("search.json", {"q": "lond"}),
     )
-    try:
-        report = provider.fetch("London", days=1)
-    except ProviderError as exc:
-        _line(CROSS, f"upstream refused (HTTP {exc.status}, {exc.kind})")
-        for chunk in str(exc).split(". "):
-            if chunk.strip():
-                _line(INFO, f"  {chunk.strip().rstrip('.')}.")
-        return 1
-    except Exception as exc:  # noqa: BLE001 - a diagnostic must report, not crash
-        _line(CROSS, f"unexpected failure: {type(exc).__name__}: {exc}")
-        return 1
-
-    _line(TICK, f"live data received: {report.place.name}, {report.current.temp_c}C")
-    _line(TICK, "the key works - the app will serve live weather")
-
     if settings.marine_enabled:
-        marine_provider = WeatherAPIProvider(
-            http=http, api_key=credential.value,
-            base_url=settings.base_url, marine_enabled=True,
-        )
-        _, notice = marine_provider._marine("London", 0)
-        if notice:
-            _line(WARN, f"marine: {notice}")
-        else:
-            _line(INFO, "marine endpoint reachable or cleanly skipped")
-    return 0
+        endpoints += (("marine.json", {"q": "Brighton", "days": 1}),)
+
+    host = settings.base_url.split("://", 1)[-1].rstrip("/")
+    results: dict[str, dict] = {}
+
+    for scheme in ("https", "http"):
+        print(f"\n  {scheme.upper()}")
+        results[scheme] = {}
+        for path, params in endpoints:
+            try:
+                payload = http.get_json(f"{scheme}://{host}/{path}", {"key": key, **params})
+            except ProviderError as exc:
+                results[scheme][path] = f"unreachable ({exc})"
+                _line(CROSS, f"  {path:14} {exc}")
+                continue
+            error = (payload or {}).get("error") or {}
+            if error:
+                results[scheme][path] = f"code {error.get('code')}"
+                _line(CROSS, f"  {path:14} code {error.get('code')}: {error.get('message')}")
+            else:
+                results[scheme][path] = "ok"
+                _line(TICK, f"  {path:14} ok")
+
+    print("\n" + "-" * 52)
+    https_ok = [p for p, r in results["https"].items() if r == "ok"]
+    http_ok = [p for p, r in results["http"].items() if r == "ok"]
+
+    if https_ok:
+        _line(TICK, "the key works over HTTPS - nothing to change")
+        return 0
+    if http_ok:
+        _line(WARN, "the key works over HTTP but not HTTPS")
+        _line(INFO, "this plan does not include TLS. The app already retries over")
+        _line(INFO, "HTTP automatically, so it will work - but the key travels in")
+        _line(INFO, "cleartext. To make it explicit and skip the failed attempt:")
+        _line(INFO, "  WEATHER_BASE_URL=http://api.weatherapi.com/v1/")
+        _line(INFO, "Set ALLOW_HTTP_FALLBACK=0 to refuse cleartext instead.")
+        return 0
+    codes = {r for r in list(results["https"].values()) + list(results["http"].values())}
+    if any("2006" in c for c in codes):
+        _line(CROSS, "rejected over both schemes: the key itself is not valid")
+        _line(INFO, "re-copy it from weatherapi.com/my-account. New keys take a few")
+        _line(INFO, "minutes to activate; trial keys expire after 14 days.")
+    elif any("unreachable" in c for c in codes):
+        _line(CROSS, "could not reach the API at all - check network or proxy")
+    else:
+        _line(CROSS, f"no endpoint succeeded: {sorted(codes)}")
+    return 1
 
 
 if __name__ == "__main__":

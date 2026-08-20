@@ -50,6 +50,7 @@ class Settings:
     http_timeout: float = 8.0
     time_quantum: int = 60      # 'now' is bucketed so ETags stay stable
     marine_enabled: bool = True
+    allow_http_fallback: bool = True
     key_status: str = "missing"
     key_note: str = ""
     key_source: str = ""
@@ -79,6 +80,7 @@ class Settings:
             http_timeout=_num("HTTP_TIMEOUT", 8.0),
             time_quantum=int(_num("TIME_QUANTUM", 60)),
             marine_enabled=_flag("MARINE_ENABLED", True),
+            allow_http_fallback=_flag("ALLOW_HTTP_FALLBACK", True),
         )
 
     @property

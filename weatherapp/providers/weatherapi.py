@@ -25,10 +25,13 @@ _UPSTREAM_ERRORS = {
     1003: (400, "No place was supplied in the request."),
     1005: (400, "The request URL was malformed. Check WEATHER_BASE_URL."),
     1006: (404, "No matching place found. Try a larger nearby town, or 'lat,lon'."),
-    2006: (401, "WeatherAPI rejected the key. Copy it again from "
-                "weatherapi.com/my-account - a fresh key can take a few minutes "
-                "to activate, and trial keys expire after 14 days. "
-                "Run 'python -m weatherapp.doctor' to see the key being sent."),
+    2006: (401, "WeatherAPI rejected the key. If the same key works over plain "
+                "HTTP, the plan does not include HTTPS - set "
+                "WEATHER_BASE_URL=http://api.weatherapi.com/v1/ (this app retries "
+                "over HTTP automatically). Otherwise re-copy it from "
+                "weatherapi.com/my-account: new keys take a few minutes to "
+                "activate and trial keys expire after 14 days. "
+                "Run 'python -m weatherapp.doctor' for a per-endpoint probe."),
     2007: (429, "This key is over its monthly call quota."),
     2008: (401, "This key has been disabled in your WeatherAPI account."),
     2009: (403, "This key's plan does not include that endpoint. "
@@ -75,25 +78,59 @@ def _clock_epoch(day_epoch: int | None, clock_text: str, offset_hours: float) ->
 class WeatherAPIProvider:
     name = "weatherapi"
 
-    def __init__(self, http, api_key: str, base_url: str, marine_enabled: bool = True):
+    def __init__(self, http, api_key: str, base_url: str, marine_enabled: bool = True,
+                 allow_http_fallback: bool = True):
         if not api_key:
             raise ValueError("WeatherAPIProvider requires an API key")
         self._http = http
         self._key = api_key
         self._base = base_url.rstrip("/") + "/"
         self._marine_enabled = marine_enabled
+        self._allow_http_fallback = allow_http_fallback
+        self.downgraded = False
+
+    @staticmethod
+    def _envelope_error(payload) -> tuple[int, str] | None:
+        """Translate WeatherAPI's error envelope, which arrives inside a 4xx."""
+        if not (isinstance(payload, dict) and payload.get("error")):
+            return None
+        error = payload["error"] or {}
+        return _UPSTREAM_ERRORS.get(
+            error.get("code"),
+            (400, error.get("message") or "Upstream rejected the request"),
+        )
 
     def _get(self, path: str, params: dict) -> dict:
-        """Fetch and translate the upstream error envelope into domain terms."""
-        payload = self._http.get_json(self._base + path, {"key": self._key, **params})
-        if isinstance(payload, dict) and payload.get("error"):
-            error = payload["error"] or {}
-            code = error.get("code")
-            status, remedy = _UPSTREAM_ERRORS.get(
-                code, (400, error.get("message") or "Upstream rejected the request")
-            )
-            raise ProviderError(remedy, status=status, kind="auth" if status in (401, 403) else "upstream")
+        """Fetch, retrying once over HTTP if the plan has no TLS.
+
+        WeatherAPI's free plan does not serve HTTPS, and rejects the key rather
+        than the scheme - which reads as "API key is invalid" for a key that is
+        perfectly good over HTTP. Downgrading beats being unusable, but it puts
+        the key in a cleartext query string, so it is surfaced as a notice.
+        """
+        query = {"key": self._key, **params}
+        payload = self._http.get_json(self._base + path, query)
+        failure = self._envelope_error(payload)
+
+        if failure and self._can_downgrade(failure[0]):
+            self._base = self._base.replace("https://", "http://", 1)
+            self.downgraded = True
+            payload = self._http.get_json(self._base + path, query)
+            failure = self._envelope_error(payload)
+
+        if failure:
+            status, remedy = failure
+            raise ProviderError(remedy, status=status,
+                                kind="auth" if status in (401, 403) else "upstream")
         return payload
+
+    def _can_downgrade(self, status: int) -> bool:
+        return (
+            self._allow_http_fallback
+            and not self.downgraded
+            and self._base.startswith("https://")
+            and status in (401, 403)
+        )
 
     # ---- WeatherProvider ------------------------------------------------
 
@@ -131,6 +168,11 @@ class WeatherAPIProvider:
         hours = self._hours(payload, offset)
         daily = self._daily(payload, offset)
         notices: list[str] = []
+        if self.downgraded:
+            notices.append(
+                "This plan does not serve HTTPS, so the request fell back to "
+                "plain HTTP. The API key travels unencrypted."
+            )
 
         marine = None
         if self._marine_enabled:

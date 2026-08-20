@@ -9,7 +9,7 @@ import { createFormatter } from "./core/format.js";
 import { places } from "./core/places.js";
 import {
   SCHEMA, applyToDocument, applyUnitPreset, exportSettings, importSettings,
-  loadSettings, resolveAppearance, saveSettings, watchSystemAppearance,
+  loadSettings, resolveAppearance, saveSettings,
 } from "./core/settings.js";
 import { createStore } from "./core/store.js";
 import { textReport } from "./core/textreport.js";
@@ -174,19 +174,10 @@ const actions = {
     toast(`Units: ${current === "metric" ? "imperial" : "metric"}`, { timeout: 1600 });
   },
 
-  /* Always produces a visible change, which a three-way cycle through "auto"
-     cannot promise: on a dark-preference machine auto and cyanotype are the
-     same pixels. Auto stays reachable from the Tools panel and the palette. */
   toggleTheme() {
-    const showing = resolveAppearance(store.get().settings);
-    const next = showing === "draft" ? "cyanotype" : "draft";
+    const next = resolveAppearance(store.get().settings) === "draft" ? "cyanotype" : "draft";
     actions.setSetting("theme", next);
     toast(next === "draft" ? "Draft (light)" : "Cyanotype (dark)", { timeout: 1600 });
-  },
-
-  setTheme(theme) {
-    actions.setSetting("theme", theme);
-    toast(theme === "auto" ? "Theme: match system" : `Theme: ${theme}`, { timeout: 1600 });
   },
 
   toggleDensity() {
@@ -456,10 +447,8 @@ function commands() {
     { label: "Share this view", run: actions.share },
     { label: "Print sheet", hint: "P", run: actions.print },
     { label: "Toggle units", hint: "U", detail: state.settings.units, run: actions.toggleUnits },
-    { label: "Toggle light / dark", hint: "T", detail: resolveAppearance(state.settings), run: actions.toggleTheme },
-    { label: "Theme: match system", keywords: "theme auto system", detail: state.settings.theme === "auto" ? "active" : "", run: () => actions.setTheme("auto") },
-    { label: "Theme: cyanotype (dark)", keywords: "theme dark", detail: state.settings.theme === "cyanotype" ? "active" : "", run: () => actions.setTheme("cyanotype") },
-    { label: "Theme: draft (light)", keywords: "theme light", detail: state.settings.theme === "draft" ? "active" : "", run: () => actions.setTheme("draft") },
+    { label: "Toggle light / dark", hint: "T", keywords: "theme cyanotype draft",
+      detail: resolveAppearance(state.settings), run: actions.toggleTheme },
     { label: "Toggle density", hint: "D", detail: state.settings.density, run: actions.toggleDensity },
     { label: "Toggle high contrast", run: () => actions.setSetting("contrast", state.settings.contrast === "high" ? "normal" : "high") },
     { label: "Toggle isobar field", run: () => actions.setSetting("isobars", state.settings.isobars === "on" ? "off" : "on") },
@@ -517,28 +506,16 @@ function syncThemeButton(settings) {
   const button = document.getElementById("btn-theme");
   if (!button) return;
   const showing = resolveAppearance(settings);
-  const auto = settings.theme === "auto";
+  const other = showing === "draft" ? "dark" : "light";
   button.textContent = showing === "draft" ? "Light" : "Dark";
-  button.setAttribute("aria-label",
-    `Theme: ${auto ? "matching system, " : ""}${showing === "draft" ? "draft light" : "cyanotype dark"}. Switch to ${showing === "draft" ? "dark" : "light"}.`);
-  button.title = `${auto ? "Auto" : "Manual"} - showing ${showing === "draft" ? "light" : "dark"}. Click for ${showing === "draft" ? "dark" : "light"} (T)`;
+  button.setAttribute("aria-label", `Theme: ${showing}. Switch to ${other}.`);
+  button.title = `Showing ${showing}. Click for ${other} (T)`;
   button.dataset.appearance = showing;
-  button.dataset.auto = String(auto);
 }
 
 function boot() {
   applyToDocument(store.get().settings);
   syncThemeButton(store.get().settings);
-
-  /* While theme is "auto" the OS is the source of truth, so a system flip has
-     to repaint immediately rather than at the next reload. */
-  watchSystemAppearance(() => {
-    const settings = store.get().settings;
-    if (settings.theme !== "auto") return;
-    applyToDocument(settings);
-    syncThemeButton(settings);
-    render();
-  });
 
   const palette = createPalette({
     backdrop: dom.paletteBackdrop,

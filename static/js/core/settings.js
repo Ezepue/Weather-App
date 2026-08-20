@@ -7,7 +7,7 @@
 const KEY = "barograph.settings.v2";
 
 export const SCHEMA = {
-  theme: { default: "auto", options: ["auto", "cyanotype", "draft"], label: "Theme" },
+  theme: { default: "cyanotype", options: ["cyanotype", "draft"], label: "Theme" },
   units: { default: "metric", options: ["metric", "imperial"], label: "Units" },
   temperature: { default: "c", options: ["c", "f"], label: "Temperature" },
   wind: { default: "kph", options: ["kph", "mph", "ms", "kn", "bft"], label: "Wind speed" },
@@ -34,14 +34,20 @@ function defaults() {
 
 export function loadSettings() {
   const base = defaults();
+  /* Nothing stored yet means a first visit, so start from the OS preference
+     rather than imposing dark on someone running a light desktop. */
+  let seeded = false;
   try {
-    const stored = JSON.parse(localStorage.getItem(KEY) || "{}");
+    const raw = localStorage.getItem(KEY);
+    seeded = raw !== null;
+    const stored = JSON.parse(raw || "{}");
     for (const [key, value] of Object.entries(stored)) {
       if (SCHEMA[key] && SCHEMA[key].options.includes(String(value))) base[key] = String(value);
     }
   } catch {
     /* Corrupt storage should reset preferences, not break the page. */
   }
+  if (!seeded) base.theme = systemAppearance();
   return base;
 }
 
@@ -57,43 +63,26 @@ export function applyUnitPreset(settings, preset) {
   return { ...settings, units: preset, ...(UNIT_PRESETS[preset] || {}) };
 }
 
-/* "auto" is not a look, it is a deferral to the OS. Anything that needs to
-   know what is actually on screen - the toggle, the button label - has to
-   resolve it, or it will offer a switch to the theme already showing. */
 export function systemAppearance() {
   return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "draft" : "cyanotype";
 }
 
+/* The theme is exactly what is stored: two states, no third that resolves to
+   one of the other two depending on the machine. */
 export function resolveAppearance(settings) {
-  return settings.theme === "auto" ? systemAppearance() : settings.theme;
-}
-
-/* Only meaningful while theme is "auto"; the callback re-applies so the page
-   follows an OS switch instead of waiting for a reload. */
-export function watchSystemAppearance(onChange) {
-  const query = window.matchMedia?.("(prefers-color-scheme: light)");
-  if (!query) return () => {};
-  const handler = () => onChange(systemAppearance());
-  query.addEventListener("change", handler);
-  return () => query.removeEventListener("change", handler);
+  return settings.theme === "draft" ? "draft" : "cyanotype";
 }
 
 export function applyToDocument(settings) {
   const root = document.documentElement;
-  if (settings.theme === "auto") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", settings.theme);
   const appearance = resolveAppearance(settings);
+  root.setAttribute("data-theme", appearance);
   root.setAttribute("data-appearance", appearance);
-  /* Two media-scoped theme-color tags handle "auto" with no JS. An explicit
-     theme has to override both, or the browser chrome keeps following the OS. */
-  const DARK = "#0a1a2f";
-  const LIGHT = "#eef3f8";
-  document.querySelectorAll('meta[name="theme-color"]').forEach((tag) => {
-    const wantsLight = (tag.getAttribute("media") || "").includes("light");
-    tag.setAttribute("content", settings.theme === "auto"
-      ? (wantsLight ? LIGHT : DARK)
-      : (appearance === "draft" ? LIGHT : DARK));
-  });
+  /* Both media-scoped tags get the chosen colour, or browser chrome keeps
+     following the OS after an explicit choice. */
+  const chrome = appearance === "draft" ? "#eef3f8" : "#0a1a2f";
+  document.querySelectorAll('meta[name="theme-color"]').forEach(
+    (tag) => tag.setAttribute("content", chrome));
   root.setAttribute("data-density", settings.density);
   root.setAttribute("data-contrast", settings.contrast);
   if (settings.motion === "system") root.removeAttribute("data-motion");

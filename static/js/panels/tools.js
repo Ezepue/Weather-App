@@ -150,7 +150,7 @@ registerPanel({
 });
 
 const OPTION_LABELS = {
-  theme: { auto: "Match system", cyanotype: "Cyanotype (dark)", draft: "Draft (light)" },
+  theme: { cyanotype: "Cyanotype (dark)", draft: "Draft (light)" },
   units: { metric: "Metric", imperial: "Imperial" },
   temperature: { c: "Celsius", f: "Fahrenheit" },
   wind: { kph: "km/h", mph: "mph", ms: "m/s", kn: "knots", bft: "Beaufort" },
