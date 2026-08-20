@@ -44,6 +44,13 @@ class ReportService:
         quantum = max(1, self._settings.time_quantum)
         return now - (now % quantum)
 
+    def _notices(self, bundle) -> list:
+        """Say why the data is synthetic when the reason is a fixable mistake."""
+        notices = list(bundle.notices)
+        if self._settings.key_status == "placeholder" and self._settings.key_note:
+            notices.insert(0, self._settings.key_note)
+        return notices
+
     def _assemble(self, bundle, days: int) -> Report:
         now = self._now()
         return Report(
@@ -56,7 +63,7 @@ class ReportService:
                 cached=bundle.cached,
                 age_seconds=bundle.age_seconds,
                 stale=bundle.stale,
-                notices=list(bundle.notices),
+                notices=self._notices(bundle),
             ),
             place=bundle.place,
             current=self._enrich(bundle.current),

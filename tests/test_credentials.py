@@ -48,3 +48,61 @@ class TestSanitize:
 
     def test_repairs_are_reported_for_diagnostics(self):
         assert "stripped a key= prefix" in sanitize(f"API_KEY={KEY}").repaired
+
+
+class TestPlaceholderDetection:
+    """An enumerated list only catches the spellings someone thought of."""
+
+    @pytest.mark.parametrize("raw", [
+        "your_secret_key",          # the one that reached production
+        "your_api_key_here", "YOUR-API-KEY", "your key here", "my_secret_key",
+        "insert_api_key", "enter api key", "paste your key", "replace-me",
+        "changeme", "CHANGEME", "todo", "TBD", "fixme", "xxx",
+        "api_key", "secret_key", "access_token",
+        "<your key here>", "example_key", "sample", "dummy", "placeholder",
+        "none", "null", "...",
+    ])
+    def test_placeholders_never_reach_the_upstream(self, raw):
+        result = sanitize(raw)
+        assert result.status == "placeholder", f"{raw!r} would have been sent as a key"
+        assert not result.usable
+
+    @pytest.mark.parametrize("raw", [
+        "0123456789abcdef0123456789abcdef",
+        "9f8e7d6c5b4a392817061524334251ab",
+        "abcd1234ABCD5678abcd1234ABCD5678",
+        "deadbeefdeadbeefdeadbeefdeadbeef",
+        "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    ])
+    def test_real_keys_are_not_mistaken_for_placeholders(self, raw):
+        result = sanitize(raw)
+        assert result.status == "ok", f"{raw!r} was wrongly rejected as a placeholder"
+        assert result.value == raw
+
+    def test_the_note_states_what_to_do(self):
+        note = sanitize("your_secret_key").note
+        assert "placeholder" in note.lower()
+        assert "replace" in note.lower()
+
+
+class TestPlaceholderReachesTheUser:
+    def test_report_explains_why_data_is_synthetic(self, monkeypatch):
+        from weatherapp import create_app
+        from weatherapp.config import Settings
+
+        monkeypatch.setenv("API_KEY", "your_secret_key")
+        client = create_app(settings=Settings.from_env()).test_client()
+        payload = client.get("/api/v1/report?q=London").get_json()
+
+        assert payload["meta"]["provider"] == "demo", "a placeholder must not be sent upstream"
+        assert any("placeholder" in n.lower() for n in payload["meta"]["notices"])
+
+    def test_healthz_reports_the_placeholder_status(self, monkeypatch):
+        from weatherapp import create_app
+        from weatherapp.config import Settings
+
+        monkeypatch.setenv("API_KEY", "your_secret_key")
+        client = create_app(settings=Settings.from_env()).test_client()
+        key = client.get("/api/v1/healthz").get_json()["key"]
+        assert key["status"] == "placeholder"
+        assert key["configured"] is False

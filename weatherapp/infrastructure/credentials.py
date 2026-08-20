@@ -12,10 +12,19 @@ import re
 from dataclasses import dataclass
 from urllib.parse import parse_qs, urlparse
 
-PLACEHOLDERS = {
-    "your_api_key_here", "your-api-key-here", "yourapikeyhere",
-    "changeme", "xxx", "todo", "api_key", "none", "null",
-}
+# An enumerated list only catches the spellings someone thought of; the real
+# world supplies "your_secret_key", "REPLACE-ME", "insert api key" and so on.
+# Match the shape of a placeholder instead: an English instruction rather than
+# a credential. A real key is hex or alphanumeric and matches none of these.
+_PLACEHOLDER_PATTERNS = (
+    r"(your|my|the|our)[\W_]*(own)?[\W_]*(api|secret|access|private)?[\W_]*(key|secret|token|value|here)",
+    r"(insert|enter|put|add|paste|replace|set)[\W_]*(your)?[\W_]*(api|secret)?[\W_]*(key|token|here|me)",
+    r"^(changeme|change[\W_]*me|replaceme|todo|tbd|fixme|xxx+|none|null|undefined|empty)$",
+    r"^(api|secret|access)[\W_]*(key|token)$",
+    r"^(example|sample|test|dummy|fake|placeholder|abc123|foobar)[\W_]*(key|token)?$",
+    r"<.*>",          # <your key here>
+    r"^\.\.\.+$",
+)
 
 # WeatherAPI issues 31-32 hex characters. Shape is advisory: the format is
 # theirs to change, so a mismatch warns rather than blocks.
@@ -40,6 +49,14 @@ class Credential:
         if len(self.value) <= 8:
             return "*" * len(self.value)
         return f"{self.value[:4]}{'*' * (len(self.value) - 8)}{self.value[-4:]}"
+
+
+def looks_like_placeholder(value: str) -> bool:
+    """True when the value reads as instructions rather than a credential."""
+    candidate = value.strip().lower()
+    if not candidate:
+        return False
+    return any(re.search(pattern, candidate) for pattern in _PLACEHOLDER_PATTERNS)
 
 
 def sanitize(raw: str | None) -> Credential:
@@ -80,9 +97,10 @@ def sanitize(raw: str | None) -> Credential:
 
     if not value:
         return Credential("", "missing", "No key supplied", tuple(repaired))
-    if value.lower() in PLACEHOLDERS:
+    if looks_like_placeholder(value):
         return Credential("", "placeholder",
-                          "The key is still the placeholder from the setup instructions",
+                          f"API_KEY is still a placeholder ({len(value)} characters of "
+                          "instruction text, not a key). Replace it with a real key.",
                           tuple(repaired))
     if not _EXPECTED_SHAPE.match(value.lower()):
         return Credential(
